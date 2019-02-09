@@ -1,12 +1,15 @@
 package blero
 
 import (
+	"sync"
+
 	"github.com/dgraph-io/badger"
 )
 
 // Opts struct
 type Opts struct {
 	DBPath string
+	Logger badger.Logger
 }
 
 // Blero struct
@@ -14,6 +17,7 @@ type Blero struct {
 	opts Opts
 	db   *badger.DB
 	seq  *badger.Sequence
+	l    sync.Mutex
 }
 
 // New creates new Blero Backend
@@ -27,6 +31,10 @@ func (bl *Blero) Start() error {
 	badgerOpts := badger.DefaultOptions
 	badgerOpts.Dir = bl.opts.DBPath
 	badgerOpts.ValueDir = bl.opts.DBPath
+	if bl.opts.Logger != nil {
+		badgerOpts.Logger = bl.opts.Logger
+	}
+
 	db, err := badger.Open(badgerOpts)
 	if err != nil {
 		return err

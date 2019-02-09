@@ -7,7 +7,7 @@ import (
 )
 
 func main() {
-	bl := blero.New(blero.BleroOpts{DBPath: "db/dev"})
+	bl := blero.New(blero.Opts{DBPath: "db/dev"})
 	err := bl.Start()
 	if err != nil {
 		log.Fatal(err)
@@ -15,7 +15,7 @@ func main() {
 	// stop gracefully
 	defer bl.Stop()
 
-	bl.Enqueue("SendEmail")
+	bl.EnqueueJob("SendEmail")
 
 	if err != nil {
 		log.Fatal(err)
