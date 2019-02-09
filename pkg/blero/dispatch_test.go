@@ -3,6 +3,7 @@ package blero
 import (
 	"errors"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -41,11 +42,14 @@ func TestBlero_RegisterUnregisterProcessor(t *testing.T) {
 }
 
 type testProcessor struct {
+	l    sync.Mutex
 	jobs []*Job
 }
 
 func (p *testProcessor) Run(j *Job) error {
+	p.l.Lock()
 	p.jobs = append(p.jobs, j)
+	p.l.Unlock()
 	return nil
 }
 
@@ -62,7 +66,7 @@ func TestBlero_assignJobs(t *testing.T) {
 	p2 := &testProcessor{}
 	p3 := &testProcessor{}
 	bl.RegisterProcessor(p1)
-	bl.RegisterProcessor(ProcessorFunc(p2.Run))
+	bl.RegisterProcessor(p2)
 	// test use of ProcessorFunc
 	bl.RegisterProcessor(ProcessorFunc(func(j *Job) error {
 		return errors.New("Failed as expected")
@@ -87,7 +91,7 @@ func TestBlero_assignJobs(t *testing.T) {
 	assert.Len(t, p2.jobs, 0)
 	assert.Len(t, p3.jobs, 0)
 
-	j3Name := "MyOtherJob"
+	j3Name := "MyOtherOtherJob"
 	j3ID, err := bl.EnqueueJob(j3Name)
 	assert.NoError(t, err)
 	assert.Len(t, p1.jobs, 0)
@@ -98,7 +102,24 @@ func TestBlero_assignJobs(t *testing.T) {
 	assert.NoError(t, err)
 
 	// wait for jobs to be processed
-	time.Sleep(200 * time.Millisecond)
+	ticker := time.NewTicker(50 * time.Millisecond)
+	for range ticker.C {
+		func() {
+
+		}
+		p1.l.Lock()
+		p2.l.Lock()
+		if len(p1.jobs) == 1 && len(p2.jobs) == 1 {
+			break
+		}
+		p1.l.Unlock()
+		p2.l.Unlock()
+	}
+
+	p1.l.Lock()
+	defer p1.l.Unlock()
+	p2.l.Lock()
+	defer p2.l.Unlock()
 
 	assert.Len(t, p1.jobs, 1)
 	assert.Equal(t, j1Name, p1.jobs[0].Name)

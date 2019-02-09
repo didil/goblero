@@ -6,3 +6,4 @@ db/*
 # code coverage
 *.out
 cover.html
+coverage.txt
