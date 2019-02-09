@@ -1,14 +1,14 @@
 package blero
 
 import (
-	"errors"
+	"fmt"
 	"strconv"
-	"sync"
 	"testing"
 	"time"
 
 	"github.com/dgraph-io/badger"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/mock"
 )
 
 type noOpProcessor struct{}
@@ -21,7 +21,10 @@ func TestBlero_RegisterUnregisterProcessor(t *testing.T) {
 	bl := New(Opts{})
 	p1 := &noOpProcessor{}
 	p2 := &noOpProcessor{}
-	p3 := &noOpProcessor{}
+	// test usage of ProcessorFunc
+	p3 := ProcessorFunc(func(j *Job) error {
+		return nil
+	})
 
 	pID1 := bl.RegisterProcessor(p1)
 	pID2 := bl.RegisterProcessor(p2)
@@ -32,7 +35,7 @@ func TestBlero_RegisterUnregisterProcessor(t *testing.T) {
 	assert.Len(t, bl.processors, 2)
 	assert.Equal(t, p1, bl.processors[pID1])
 	assert.Equal(t, nil, bl.processors[pID2])
-	assert.Equal(t, p3, bl.processors[pID3])
+	assert.NotNil(t, bl.processors[pID3])
 
 	bl.UnregisterProcessor(pID3)
 	assert.Len(t, bl.processors, 1)
@@ -42,15 +45,18 @@ func TestBlero_RegisterUnregisterProcessor(t *testing.T) {
 }
 
 type testProcessor struct {
-	l    sync.Mutex
-	jobs []*Job
+	mock.Mock
 }
 
-func (p *testProcessor) Run(j *Job) error {
-	p.l.Lock()
-	p.jobs = append(p.jobs, j)
-	p.l.Unlock()
-	return nil
+func (m *testProcessor) Run(j *Job) error {
+	_ = m.Called(j)
+
+	var err error
+	if j.Name == "MyOtherOtherJob" {
+		err = fmt.Errorf("%v errors out", j.Name)
+	}
+
+	return err
 }
 
 func TestBlero_assignJobs(t *testing.T) {
@@ -62,72 +68,51 @@ func TestBlero_assignJobs(t *testing.T) {
 	defer deleteDBFolder(testDBPath)
 	defer bl.Stop()
 
-	p1 := &testProcessor{}
-	p2 := &testProcessor{}
-	p3 := &testProcessor{}
-	bl.RegisterProcessor(p1)
-	bl.RegisterProcessor(p2)
-	// test use of ProcessorFunc
-	bl.RegisterProcessor(ProcessorFunc(func(j *Job) error {
-		return errors.New("Failed as expected")
-	}))
+	j1Name := "MyJob"
+	j2Name := "MyOtherJob"
+	j3Name := "MyOtherOtherJob"
+
+	p1 := new(testProcessor)
+	p2 := new(testProcessor)
+	p3 := new(testProcessor)
+
+	for _, p := range []*testProcessor{p1, p2, p3} {
+		p.On("Run", mock.AnythingOfType("*blero.Job"))
+		bl.RegisterProcessor(p)
+	}
 
 	// test assign without jobs
 	err = bl.assignJobs()
 	assert.NoError(t, err)
 
 	// enqueue jobs
-	j1Name := "MyJob"
 	j1ID, err := bl.EnqueueJob(j1Name)
 	assert.NoError(t, err)
-	assert.Len(t, p1.jobs, 0)
-	assert.Len(t, p2.jobs, 0)
-	assert.Len(t, p3.jobs, 0)
+	p1.AssertNumberOfCalls(t, "Run", 0)
+	p2.AssertNumberOfCalls(t, "Run", 0)
+	p3.AssertNumberOfCalls(t, "Run", 0)
 
-	j2Name := "MyOtherJob"
 	j2ID, err := bl.EnqueueJob(j2Name)
 	assert.NoError(t, err)
-	assert.Len(t, p1.jobs, 0)
-	assert.Len(t, p2.jobs, 0)
-	assert.Len(t, p3.jobs, 0)
+	p1.AssertNumberOfCalls(t, "Run", 0)
+	p2.AssertNumberOfCalls(t, "Run", 0)
+	p3.AssertNumberOfCalls(t, "Run", 0)
 
-	j3Name := "MyOtherOtherJob"
 	j3ID, err := bl.EnqueueJob(j3Name)
 	assert.NoError(t, err)
-	assert.Len(t, p1.jobs, 0)
-	assert.Len(t, p2.jobs, 0)
-	assert.Len(t, p3.jobs, 0)
+	p1.AssertNumberOfCalls(t, "Run", 0)
+	p2.AssertNumberOfCalls(t, "Run", 0)
+	p3.AssertNumberOfCalls(t, "Run", 0)
 
 	err = bl.assignJobs()
 	assert.NoError(t, err)
 
 	// wait for jobs to be processed
-	ticker := time.NewTicker(50 * time.Millisecond)
-	for range ticker.C {
-		func() {
+	time.Sleep(50 * time.Millisecond)
 
-		}
-		p1.l.Lock()
-		p2.l.Lock()
-		if len(p1.jobs) == 1 && len(p2.jobs) == 1 {
-			break
-		}
-		p1.l.Unlock()
-		p2.l.Unlock()
-	}
-
-	p1.l.Lock()
-	defer p1.l.Unlock()
-	p2.l.Lock()
-	defer p2.l.Unlock()
-
-	assert.Len(t, p1.jobs, 1)
-	assert.Equal(t, j1Name, p1.jobs[0].Name)
-	assert.Equal(t, j1ID, p1.jobs[0].ID)
-
-	assert.Len(t, p2.jobs, 1)
-	assert.Equal(t, j2Name, p2.jobs[0].Name)
-	assert.Equal(t, j2ID, p2.jobs[0].ID)
+	p1.AssertNumberOfCalls(t, "Run", 1)
+	p2.AssertNumberOfCalls(t, "Run", 1)
+	p3.AssertNumberOfCalls(t, "Run", 1)
 
 	err = bl.db.View(func(txn *badger.Txn) error {
 		// check that job 1 is in the complete queue
@@ -144,5 +129,9 @@ func TestBlero_assignJobs(t *testing.T) {
 
 		return nil
 	})
+	assert.NoError(t, err)
 
+	p1.AssertExpectations(t)
+	p2.AssertExpectations(t)
+	p3.AssertExpectations(t)
 }
