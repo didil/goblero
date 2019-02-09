@@ -1,8 +1,8 @@
 .idea
 .vscode
 
-db/*
+#db/*
 
-// code coverage
+# code coverage
 *.out
 cover.html
