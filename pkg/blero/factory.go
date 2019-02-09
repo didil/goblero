@@ -1,6 +1,7 @@
 package blero
 
 import (
+	"errors"
 	"sync"
 
 	"github.com/dgraph-io/badger"
@@ -8,25 +9,41 @@ import (
 
 // Opts struct
 type Opts struct {
+	// Required
+	// badger db folder path, the folder will be created if it doesn't exist
 	DBPath string
+	// Optional
+	// badger.Logger interface logger
 	Logger badger.Logger
 }
 
 // Blero struct
 type Blero struct {
-	opts Opts
-	db   *badger.DB
-	seq  *badger.Sequence
-	l    sync.Mutex
+	opts           Opts
+	db             *badger.DB
+	seq            *badger.Sequence
+	dbL            sync.Mutex
+	dispatchL      sync.Mutex
+	maxProcessorID int
+	processors     map[int]Processor
+	processing     map[int]uint64
 }
 
 // New creates new Blero Backend
 func New(opts Opts) *Blero {
-	return &Blero{opts: opts}
+	bl := &Blero{opts: opts}
+	bl.processors = make(map[int]Processor)
+	bl.processing = make(map[int]uint64)
+	return bl
 }
 
 // Start Blero
 func (bl *Blero) Start() error {
+	// validate opts
+	if bl.opts.DBPath == "" {
+		return errors.New("Opts: DBPath is required")
+	}
+
 	// open db
 	badgerOpts := badger.DefaultOptions
 	badgerOpts.Dir = bl.opts.DBPath

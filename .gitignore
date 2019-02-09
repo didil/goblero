@@ -2,3 +2,7 @@
 .vscode
 
 db/*
+
+// code coverage
+*.out
+cover.html

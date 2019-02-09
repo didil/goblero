@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"testing"
@@ -15,6 +16,11 @@ import (
 const testDBPath = "../../db/test"
 
 func deleteDBFolder(dbPath string) {
+	// prevent accidental deletion of non badgerdb folder
+	if _, err := os.Stat(filepath.Join(dbPath, "MANIFEST")); os.IsNotExist(err) {
+		panic("Attempted to delete non badgerdb folder " + dbPath)
+	}
+
 	err := os.RemoveAll(dbPath)
 	if err != nil {
 		panic(err)
@@ -102,7 +108,7 @@ func TestBlero_DequeueJob(t *testing.T) {
 	j2ID, err := bl.EnqueueJob(j2Name)
 	assert.NoError(t, err)
 
-	j, err := bl.DequeueJob()
+	j, err := bl.dequeueJob()
 	assert.NoError(t, err)
 
 	assert.Equal(t, j1ID, j.ID)
@@ -124,12 +130,12 @@ func TestBlero_DequeueJob(t *testing.T) {
 		b, err := item.ValueCopy(nil)
 		assert.NoError(t, err)
 
-		var inProgressJob Job
-		err = gob.NewDecoder(bytes.NewBuffer(b)).Decode(&inProgressJob)
+		var completeJob Job
+		err = gob.NewDecoder(bytes.NewBuffer(b)).Decode(&completeJob)
 		assert.NoError(t, err)
 
-		assert.Equal(t, j1ID, inProgressJob.ID)
-		assert.Equal(t, j1Name, inProgressJob.Name)
+		assert.Equal(t, j1ID, completeJob.ID)
+		assert.Equal(t, j1Name, completeJob.Name)
 		return nil
 	})
 	assert.NoError(t, err)
@@ -155,13 +161,13 @@ func TestBlero_DequeueJob_Concurrent(t *testing.T) {
 	ch := make(chan *Job)
 
 	go func() {
-		j, err := bl.DequeueJob()
+		j, err := bl.dequeueJob()
 		assert.NoError(t, err)
 		ch <- j
 	}()
 
 	go func() {
-		j, err := bl.DequeueJob()
+		j, err := bl.dequeueJob()
 		assert.NoError(t, err)
 		ch <- j
 	}()
@@ -179,4 +185,84 @@ func TestBlero_DequeueJob_Concurrent(t *testing.T) {
 
 	assert.Equal(t, jobs[1].ID, j2ID)
 	assert.Equal(t, jobs[1].Name, j2Name)
+}
+
+func TestBlero_MarkJobDone(t *testing.T) {
+	bl := New(Opts{DBPath: testDBPath})
+	err := bl.Start()
+	assert.NoError(t, err)
+
+	// stop gracefully
+	defer deleteDBFolder(testDBPath)
+	defer bl.Stop()
+
+	j1Name := "TestJob"
+	j1ID, err := bl.EnqueueJob(j1Name)
+	assert.NoError(t, err)
+
+	j2Name := "TestJob"
+	j2ID, err := bl.EnqueueJob(j2Name)
+	assert.NoError(t, err)
+
+	// move job 1 to inprogress
+	_, err = bl.dequeueJob()
+	assert.NoError(t, err)
+	// move job 2 to inprogress
+	_, err = bl.dequeueJob()
+	assert.NoError(t, err)
+
+	err = bl.markJobDone(j1ID, JobComplete)
+	assert.NoError(t, err)
+
+	err = bl.markJobDone(j2ID, JobFailed)
+	assert.NoError(t, err)
+
+	err = bl.db.View(func(txn *badger.Txn) error {
+		// check that job 1 is not in the inprogress queue anymore
+		_, err := txn.Get([]byte("q:inprogress:" + strconv.Itoa(int(j1ID))))
+		assert.EqualError(t, err, badger.ErrKeyNotFound.Error())
+
+		// check that job 2 is not in the inprogress queue anymore
+		_, err = txn.Get([]byte("q:inprogress:" + strconv.Itoa(int(j2ID))))
+		assert.EqualError(t, err, badger.ErrKeyNotFound.Error())
+
+		// check that job 1 is now in the complete queue
+		item1, err := txn.Get([]byte("q:complete:" + strconv.Itoa(int(j1ID))))
+		assert.NoError(t, err)
+
+		// check that job 2 is now in the failed queue
+		item2, err := txn.Get([]byte("q:failed:" + strconv.Itoa(int(j2ID))))
+		assert.NoError(t, err)
+
+		b1, err := item1.ValueCopy(nil)
+		assert.NoError(t, err)
+
+		var completeJob Job
+		err = gob.NewDecoder(bytes.NewBuffer(b1)).Decode(&completeJob)
+		assert.NoError(t, err)
+
+		assert.Equal(t, j1ID, completeJob.ID)
+		assert.Equal(t, j1Name, completeJob.Name)
+
+		b2, err := item2.ValueCopy(nil)
+		assert.NoError(t, err)
+
+		var failedJob Job
+		err = gob.NewDecoder(bytes.NewBuffer(b2)).Decode(&failedJob)
+		assert.NoError(t, err)
+
+		assert.Equal(t, j2ID, failedJob.ID)
+		assert.Equal(t, j2Name, failedJob.Name)
+
+		return nil
+	})
+	assert.NoError(t, err)
+
+	// check random job id is not in queue error
+	err = bl.markJobDone(uint64(4151231), JobComplete)
+	assert.EqualError(t, err, "Job 4151231 not found in InProgress queue")
+
+	// check moving job to pending error
+	err = bl.markJobDone(j2ID, JobPending)
+	assert.EqualError(t, err, "Can only move to Complete or Failed Status")
 }
