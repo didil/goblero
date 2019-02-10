@@ -2,6 +2,7 @@ package blero
 
 import (
 	"fmt"
+	"os"
 	"sync"
 )
 
@@ -11,6 +12,7 @@ type Dispatcher struct {
 	maxProcessorID int
 	processors     map[int]Processor
 	processing     map[int]uint64
+	ch             chan *Queue
 }
 
 // NewDispatcher creates new Dispatcher
@@ -18,7 +20,25 @@ func NewDispatcher() *Dispatcher {
 	d := &Dispatcher{}
 	d.processors = make(map[int]Processor)
 	d.processing = make(map[int]uint64)
+	d.ch = make(chan *Queue)
 	return d
+}
+
+// StartLoop starts the dispatcher assignment loop
+func (d *Dispatcher) StartLoop() {
+	go func() {
+		for q := range d.ch {
+			err := d.assignJobs(q)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Cannot assign jobs: %v", err)
+			}
+		}
+	}()
+}
+
+// StopLoop stops the dispatcher assignment loop
+func (d *Dispatcher) StopLoop() {
+	close(d.ch)
 }
 
 // RegisterProcessor registers a new processor

@@ -36,6 +36,7 @@ func (bl *Blero) Start() error {
 
 // Stop Blero and Release resources
 func (bl *Blero) Stop() error {
+	bl.dispatcher.StopLoop()
 	return bl.queue.Stop()
 }
 

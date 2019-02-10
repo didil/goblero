@@ -78,7 +78,7 @@ func (q *Queue) Stop() error {
 
 	return nil
 }
-
+ 
 // EnqueueJob enqueues a new Job to the Pending queue
 func (q *Queue) EnqueueJob(name string) (uint64, error) {
 	num, err := q.seq.Next()
