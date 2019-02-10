@@ -3,6 +3,7 @@ package blero
 import (
 	"fmt"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -142,6 +143,70 @@ func TestBlero_assignJobs(t *testing.T) {
 	p3.AssertExpectations(t)
 }
 
-func TestBlero_AutoProcessing(t *testing.T) {
-	panic("not implemented")
+func TestBlero_AutoProcessing_ProcessorFirst(t *testing.T) {
+	bl := New(Opts{DBPath: testDBPath})
+	err := bl.Start()
+	assert.NoError(t, err)
+
+	// stop gracefully
+	defer deleteDBFolder(testDBPath)
+	defer bl.Stop()
+
+	var m sync.Mutex
+	var calls []string
+
+	bl.RegisterProcessor(ProcessorFunc(func(j *Job) error {
+		m.Lock()
+		calls = append(calls, j.Name)
+		m.Unlock()
+		return nil
+	}))
+
+	j1Name := "MyJob"
+	j2Name := "MyOtherJob"
+
+	bl.EnqueueJob(j1Name)
+	bl.EnqueueJob(j2Name)
+
+	// wait for jobs to be processed
+	time.Sleep(50 * time.Millisecond)
+
+	m.Lock()
+	assert.Len(t, calls, 2)
+	assert.ElementsMatch(t, []string{j1Name, j2Name}, calls)
+	m.Unlock()
+}
+
+func TestBlero_AutoProcessing_JobsFirst(t *testing.T) {
+	bl := New(Opts{DBPath: testDBPath})
+	err := bl.Start()
+	assert.NoError(t, err)
+
+	// stop gracefully
+	defer deleteDBFolder(testDBPath)
+	defer bl.Stop()
+
+	var m sync.Mutex
+	var calls []string
+
+	j1Name := "MyJob"
+	j2Name := "MyOtherJob"
+
+	bl.EnqueueJob(j1Name)
+	bl.EnqueueJob(j2Name)
+
+	bl.RegisterProcessor(ProcessorFunc(func(j *Job) error {
+		m.Lock()
+		calls = append(calls, j.Name)
+		m.Unlock()
+		return nil
+	}))
+
+	// wait for jobs to be processed
+	time.Sleep(50 * time.Millisecond)
+
+	m.Lock()
+	assert.Len(t, calls, 2)
+	assert.ElementsMatch(t, []string{j1Name, j2Name}, calls)
+	m.Unlock()
 }
