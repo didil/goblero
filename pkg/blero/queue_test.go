@@ -1,8 +1,6 @@
 package blero
 
 import (
-	"bytes"
-	"encoding/gob"
 	"os"
 	"path/filepath"
 	"sort"
@@ -44,15 +42,9 @@ func TestBlero_EnqueueJob(t *testing.T) {
 
 	assert.Equal(t, uint64(1), jID)
 
-	var j Job
+	var j *Job
 	err = q.db.View(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte("q:pending:" + strconv.Itoa(int(jID))))
-		assert.NoError(t, err)
-
-		b, err := item.ValueCopy(nil)
-		assert.NoError(t, err)
-
-		err = gob.NewDecoder(bytes.NewBuffer(b)).Decode(&j)
+		j, err = getJobForKey(txn, []byte("q:pending:"+strconv.Itoa(int(jID))))
 		assert.NoError(t, err)
 
 		return nil
@@ -127,15 +119,8 @@ func TestBlero_DequeueJob(t *testing.T) {
 		_, err = txn.Get([]byte("q:pending:" + strconv.Itoa(int(j2ID))))
 		assert.NoError(t, err)
 
-		// check that job 1 is now in the inprogress queue
-		item, err := txn.Get([]byte("q:inprogress:" + strconv.Itoa(int(j1ID))))
-		assert.NoError(t, err)
-
-		b, err := item.ValueCopy(nil)
-		assert.NoError(t, err)
-
-		var completeJob Job
-		err = gob.NewDecoder(bytes.NewBuffer(b)).Decode(&completeJob)
+		// get job 1 from inprogress queue
+		completeJob, err := getJobForKey(txn, []byte("q:inprogress:"+strconv.Itoa(int(j1ID))))
 		assert.NoError(t, err)
 
 		assert.Equal(t, j1ID, completeJob.ID)
@@ -235,28 +220,13 @@ func TestBlero_MarkJobDone(t *testing.T) {
 		assert.EqualError(t, err, badger.ErrKeyNotFound.Error())
 
 		// check that job 1 is now in the complete queue
-		item1, err := txn.Get([]byte("q:complete:" + strconv.Itoa(int(j1ID))))
-		assert.NoError(t, err)
-
-		// check that job 2 is now in the failed queue
-		item2, err := txn.Get([]byte("q:failed:" + strconv.Itoa(int(j2ID))))
-		assert.NoError(t, err)
-
-		b1, err := item1.ValueCopy(nil)
-		assert.NoError(t, err)
-
-		var completeJob Job
-		err = gob.NewDecoder(bytes.NewBuffer(b1)).Decode(&completeJob)
+		completeJob, err := getJobForKey(txn, []byte("q:complete:"+strconv.Itoa(int(j1ID))))
 		assert.NoError(t, err)
 
 		assert.Equal(t, j1ID, completeJob.ID)
 		assert.Equal(t, j1Name, completeJob.Name)
 
-		b2, err := item2.ValueCopy(nil)
-		assert.NoError(t, err)
-
-		var failedJob Job
-		err = gob.NewDecoder(bytes.NewBuffer(b2)).Decode(&failedJob)
+		failedJob, err := getJobForKey(txn, []byte("q:failed:"+strconv.Itoa(int(j2ID))))
 		assert.NoError(t, err)
 
 		assert.Equal(t, j2ID, failedJob.ID)
@@ -268,7 +238,7 @@ func TestBlero_MarkJobDone(t *testing.T) {
 
 	// check random job id is not in queue error
 	err = q.markJobDone(uint64(4151231), JobComplete)
-	assert.EqualError(t, err, "Job 4151231 not found in InProgress queue")
+	assert.EqualError(t, err, "Key not found")
 
 	// check moving job to pending error
 	err = q.markJobDone(j2ID, JobPending)

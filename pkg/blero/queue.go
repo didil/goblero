@@ -136,36 +136,53 @@ func (q *Queue) dequeueJob() (*Job, error) {
 	q.dbL.Lock()
 	defer q.dbL.Unlock()
 	err := q.db.Update(func(txn *badger.Txn) error {
-		itOpts := badger.DefaultIteratorOptions
-		itOpts.PrefetchValues = false
-		it := txn.NewIterator(badger.DefaultIteratorOptions)
 		prefix := []byte(getQueueKeyPrefix(JobPending))
-
-		// go to smallest key after prefix
-		it.Seek(prefix)
-		defer it.Close()
-		if !it.ValidForPrefix(prefix) {
-			return nil // iteration is done, no job was found
-		}
-
-		item := it.Item()
-		b, err := item.ValueCopy(nil)
+		k, v, err := getFirstKVForPrefix(txn, prefix)
 		if err != nil {
 			return err
 		}
+		// iteration is done, no job was found
+		if k == nil {
+			return nil
+		}
 
-		err = gob.NewDecoder(bytes.NewBuffer(b)).Decode(&j)
+		j, err = decodeJob(v)
 		if err != nil {
 			return err
 		}
 
 		// Move from from Pending queue to InProgress queue
-		err = moveItem(txn, item.Key(), []byte(getJobKey(JobInProgress, j.ID)), b)
+		err = moveItem(txn, k, []byte(getJobKey(JobInProgress, j.ID)), v)
 
 		return err
 	})
 
 	return j, err
+}
+
+func getFirstKVForPrefix(txn *badger.Txn, prefix []byte) ([]byte, []byte, error) {
+	itOpts := badger.DefaultIteratorOptions
+	itOpts.PrefetchValues = false
+	it := txn.NewIterator(badger.DefaultIteratorOptions)
+
+	// go to smallest key after prefix
+	it.Seek(prefix)
+	defer it.Close()
+	// iteration done, no item found
+	if !it.ValidForPrefix(prefix) {
+		return nil, nil, nil
+	}
+
+	item := it.Item()
+
+	k := item.KeyCopy(nil)
+
+	v, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return k, v, nil
 }
 
 // markJobDone moves a job from the inprogress status to complete/failed
@@ -178,15 +195,7 @@ func (q *Queue) markJobDone(id uint64, status JobStatus) error {
 	defer q.dbL.Unlock()
 	err := q.db.Update(func(txn *badger.Txn) error {
 		key := []byte(getJobKey(JobInProgress, id))
-		item, err := txn.Get(key)
-		if err == badger.ErrKeyNotFound {
-			return fmt.Errorf("Job %v not found in InProgress queue", id)
-		}
-		if err != nil {
-			return err
-		}
-
-		b, err := item.ValueCopy(nil)
+		b, err := getBytesForKey(txn, key)
 		if err != nil {
 			return err
 		}
@@ -198,6 +207,41 @@ func (q *Queue) markJobDone(id uint64, status JobStatus) error {
 	})
 
 	return err
+}
+
+func decodeJob(b []byte) (*Job, error) {
+	var j *Job
+	err := gob.NewDecoder(bytes.NewBuffer(b)).Decode(&j)
+	if err != nil {
+		return nil, err
+	}
+	return j, nil
+}
+
+func getJobForKey(txn *badger.Txn, key []byte) (*Job, error) {
+	b, err := getBytesForKey(txn, key)
+	if err != nil {
+		return nil, err
+	}
+	j, err := decodeJob(b)
+	if err != nil {
+		return nil, err
+	}
+	return j, nil
+}
+
+func getBytesForKey(txn *badger.Txn, key []byte) ([]byte, error) {
+	item, err := txn.Get(key)
+	if err != nil {
+		return nil, err
+	}
+
+	b, err := item.ValueCopy(nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return b, nil
 }
 
 func moveItem(txn *badger.Txn, oldKey []byte, newKey []byte, b []byte) error {
