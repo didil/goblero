@@ -78,7 +78,7 @@ func (q *Queue) Stop() error {
 
 	return nil
 }
- 
+
 // EnqueueJob enqueues a new Job to the Pending queue
 func (q *Queue) EnqueueJob(name string) (uint64, error) {
 	num, err := q.seq.Next()
@@ -94,7 +94,6 @@ func (q *Queue) EnqueueJob(name string) (uint64, error) {
 		}
 
 		key := getJobKey(JobPending, j.ID)
-		fmt.Printf("Enqueing %v\n", key)
 		err = txn.Set([]byte(key), b)
 
 		return err

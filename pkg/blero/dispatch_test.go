@@ -2,6 +2,7 @@ package blero
 
 import (
 	"fmt"
+	"runtime"
 	"strconv"
 	"sync"
 	"testing"
@@ -217,4 +218,25 @@ func TestBlero_AutoProcessing_JobsFirst(t *testing.T) {
 	assert.Len(t, calls, 2)
 	assert.ElementsMatch(t, []string{j1Name, j2Name}, calls)
 	m.Unlock()
+}
+
+func TestBlero_AutoProcessing_GoRoutinesHanging(t *testing.T) {
+	bl := New(Opts{DBPath: testDBPath})
+	// only start the queue and not the dispatch loop to not run assign and show goroutines hanging problem
+	err := bl.queue.Start()
+	assert.NoError(t, err)
+
+	// stop gracefully
+	defer deleteDBFolder(testDBPath)
+
+	for index := 0; index < 300; index++ {
+		bl.EnqueueJob("FakeJob")
+	}
+
+	bl.Stop()
+
+	// simulate wait period
+	time.Sleep(50 * time.Millisecond)
+
+	assert.True(t, runtime.NumGoroutine() < 20)
 }

@@ -53,10 +53,8 @@ func (bl *Blero) EnqueueJob(name string) (uint64, error) {
 		return 0, err
 	}
 
-	go func() {
-		// signal that a new job was enqueued
-		bl.dispatcher.ch <- 1
-	}()
+	// signal that a new job was enqueued
+	bl.dispatcher.SignalLoop()
 
 	return jID, nil
 }

@@ -40,6 +40,18 @@ func (d *Dispatcher) StartLoop(q *Queue) {
 	}()
 }
 
+// SignalLoop signals to the dispatcher loop that an assignment check might need to run
+func (d *Dispatcher) SignalLoop() {
+	go func() {
+		select {
+		case <-d.quitCh: // loop was stopped
+			return
+		case d.ch <- 1:
+			return
+		}
+	}()
+}
+
 // StopLoop stops the dispatcher assignment loop
 func (d *Dispatcher) StopLoop() {
 	close(d.quitCh)
@@ -52,10 +64,8 @@ func (d *Dispatcher) RegisterProcessor(p Processor) int {
 
 	pID := d.pStore.RegisterProcessor(p)
 
-	go func() {
-		// signal that the processor is now available
-		d.ch <- 1
-	}()
+	// signal that the processor is now available
+	d.SignalLoop()
 
 	return pID
 }
@@ -146,8 +156,6 @@ func (d *Dispatcher) runJob(q *Queue, pID int, p Processor, j *Job) {
 func (d *Dispatcher) processorDone(pID int) {
 	d.unassignJob(pID)
 
-	go func() {
-		// signal that the processor might now be available
-		d.ch <- 1
-	}()
+	// signal that the processor might now be available
+	d.SignalLoop()
 }
