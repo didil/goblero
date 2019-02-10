@@ -6,19 +6,88 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/dgraph-io/badger"
 )
 
+// QueueOpts struct
+type QueueOpts struct {
+	DBPath string
+	Logger badger.Logger
+}
+
+// Queue struct
+type Queue struct {
+	opts QueueOpts
+	db   *badger.DB
+	seq  *badger.Sequence
+	dbL  sync.Mutex
+}
+
+// NewQueue creates new Queue
+func NewQueue(opts QueueOpts) *Queue {
+	q := &Queue{opts: opts}
+	return q
+}
+
+// Start Queue
+func (q *Queue) Start() error {
+	// validate opts
+	if q.opts.DBPath == "" {
+		return errors.New("Opts: DBPath is required")
+	}
+
+	// open db
+	badgerOpts := badger.DefaultOptions
+	badgerOpts.Dir = q.opts.DBPath
+	badgerOpts.ValueDir = q.opts.DBPath
+	if q.opts.Logger != nil {
+		badgerOpts.Logger = q.opts.Logger
+	}
+
+	db, err := badger.Open(badgerOpts)
+	if err != nil {
+		return err
+	}
+	q.db = db
+
+	// init sequence
+	seq, err := db.GetSequence([]byte("standard"), 1000)
+	if err != nil {
+		return err
+	}
+	q.seq = seq
+
+	return nil
+}
+
+// Stop Queue and Release resources
+func (q *Queue) Stop() error {
+	// release sequence
+	err := q.seq.Release()
+	if err != nil {
+		return err
+	}
+
+	// close db
+	err = q.db.Close()
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 // EnqueueJob enqueues a new Job to the Pending queue
-func (bl *Blero) EnqueueJob(name string) (uint64, error) {
-	num, err := bl.seq.Next()
+func (q *Queue) EnqueueJob(name string) (uint64, error) {
+	num, err := q.seq.Next()
 	if err != nil {
 		return 0, err
 	}
 	j := &Job{ID: num + 1, Name: name}
 
-	err = bl.db.Update(func(txn *badger.Txn) error {
+	err = q.db.Update(func(txn *badger.Txn) error {
 		var b bytes.Buffer
 		err := gob.NewEncoder(&b).Encode(j)
 		if err != nil {
@@ -63,12 +132,12 @@ func getJobKey(status JobStatus, ID uint64) string {
 }
 
 // dequeueJob moves the next pending job from the pending status to inprogress
-func (bl *Blero) dequeueJob() (*Job, error) {
+func (q *Queue) dequeueJob() (*Job, error) {
 	var j *Job
 
-	bl.dbL.Lock()
-	defer bl.dbL.Unlock()
-	err := bl.db.Update(func(txn *badger.Txn) error {
+	q.dbL.Lock()
+	defer q.dbL.Unlock()
+	err := q.db.Update(func(txn *badger.Txn) error {
 		itOpts := badger.DefaultIteratorOptions
 		itOpts.PrefetchValues = false
 		it := txn.NewIterator(badger.DefaultIteratorOptions)
@@ -115,14 +184,14 @@ func (bl *Blero) dequeueJob() (*Job, error) {
 }
 
 // markJobDone moves a job from the inprogress status to complete/failed
-func (bl *Blero) markJobDone(id uint64, status JobStatus) error {
+func (q *Queue) markJobDone(id uint64, status JobStatus) error {
 	if status != JobComplete && status != JobFailed {
 		return errors.New("Can only move to Complete or Failed Status")
 	}
 
-	bl.dbL.Lock()
-	defer bl.dbL.Unlock()
-	err := bl.db.Update(func(txn *badger.Txn) error {
+	q.dbL.Lock()
+	defer q.dbL.Unlock()
+	err := q.db.Update(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(getJobKey(JobInProgress, id)))
 		if err == badger.ErrKeyNotFound {
 			return fmt.Errorf("Job %v not found in InProgress queue", id)

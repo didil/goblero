@@ -26,22 +26,24 @@ func TestBlero_RegisterUnregisterProcessor(t *testing.T) {
 		return nil
 	})
 
+	d := bl.dispatcher
+
 	pID1 := bl.RegisterProcessor(p1)
 	pID2 := bl.RegisterProcessor(p2)
 	pID3 := bl.RegisterProcessor(p3)
-	assert.Len(t, bl.processors, 3)
+	assert.Len(t, d.processors, 3)
 
 	bl.UnregisterProcessor(pID2)
-	assert.Len(t, bl.processors, 2)
-	assert.Equal(t, p1, bl.processors[pID1])
-	assert.Equal(t, nil, bl.processors[pID2])
-	assert.NotNil(t, bl.processors[pID3])
+	assert.Len(t, d.processors, 2)
+	assert.Equal(t, p1, d.processors[pID1])
+	assert.Equal(t, nil, d.processors[pID2])
+	assert.NotNil(t, d.processors[pID3])
 
 	bl.UnregisterProcessor(pID3)
-	assert.Len(t, bl.processors, 1)
-	assert.Equal(t, p1, bl.processors[pID1])
-	assert.Equal(t, nil, bl.processors[pID2])
-	assert.Equal(t, nil, bl.processors[pID3])
+	assert.Len(t, d.processors, 1)
+	assert.Equal(t, p1, d.processors[pID1])
+	assert.Equal(t, nil, d.processors[pID2])
+	assert.Equal(t, nil, d.processors[pID3])
 }
 
 type testProcessor struct {
@@ -68,6 +70,9 @@ func TestBlero_assignJobs(t *testing.T) {
 	defer deleteDBFolder(testDBPath)
 	defer bl.Stop()
 
+	d := bl.dispatcher
+	q := bl.queue
+
 	j1Name := "MyJob"
 	j2Name := "MyOtherJob"
 	j3Name := "MyOtherOtherJob"
@@ -82,7 +87,7 @@ func TestBlero_assignJobs(t *testing.T) {
 	}
 
 	// test assign without jobs
-	err = bl.assignJobs()
+	err = d.assignJobs(q)
 	assert.NoError(t, err)
 
 	// enqueue jobs
@@ -104,7 +109,7 @@ func TestBlero_assignJobs(t *testing.T) {
 	p2.AssertNumberOfCalls(t, "Run", 0)
 	p3.AssertNumberOfCalls(t, "Run", 0)
 
-	err = bl.assignJobs()
+	err = d.assignJobs(q)
 	assert.NoError(t, err)
 
 	// wait for jobs to be processed
@@ -114,7 +119,7 @@ func TestBlero_assignJobs(t *testing.T) {
 	p2.AssertNumberOfCalls(t, "Run", 1)
 	p3.AssertNumberOfCalls(t, "Run", 1)
 
-	err = bl.db.View(func(txn *badger.Txn) error {
+	err = q.db.View(func(txn *badger.Txn) error {
 		// check that job 1 is in the complete queue
 		_, err := txn.Get([]byte("q:complete:" + strconv.Itoa(int(j1ID))))
 		assert.NoError(t, err)

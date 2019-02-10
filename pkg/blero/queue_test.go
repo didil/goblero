@@ -32,6 +32,8 @@ func TestBlero_EnqueueJob(t *testing.T) {
 	err := bl.Start()
 	assert.NoError(t, err)
 
+	q := bl.queue
+
 	// stop gracefully
 	defer deleteDBFolder(testDBPath)
 	defer bl.Stop()
@@ -43,7 +45,7 @@ func TestBlero_EnqueueJob(t *testing.T) {
 	assert.Equal(t, uint64(1), jID)
 
 	var j Job
-	err = bl.db.View(func(txn *badger.Txn) error {
+	err = q.db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte("q:pending:" + strconv.Itoa(int(jID))))
 		assert.NoError(t, err)
 
@@ -100,6 +102,8 @@ func TestBlero_DequeueJob(t *testing.T) {
 	defer deleteDBFolder(testDBPath)
 	defer bl.Stop()
 
+	q := bl.queue
+
 	j1Name := "TestJob"
 	j1ID, err := bl.EnqueueJob(j1Name)
 	assert.NoError(t, err)
@@ -108,13 +112,13 @@ func TestBlero_DequeueJob(t *testing.T) {
 	j2ID, err := bl.EnqueueJob(j2Name)
 	assert.NoError(t, err)
 
-	j, err := bl.dequeueJob()
+	j, err := q.dequeueJob()
 	assert.NoError(t, err)
 
 	assert.Equal(t, j1ID, j.ID)
 	assert.Equal(t, j1Name, j.Name)
 
-	err = bl.db.View(func(txn *badger.Txn) error {
+	err = q.db.View(func(txn *badger.Txn) error {
 		// check that job 1 is not in the pending queue anymore
 		_, err := txn.Get([]byte("q:pending:" + strconv.Itoa(int(j1ID))))
 		assert.EqualError(t, err, badger.ErrKeyNotFound.Error())
@@ -150,6 +154,8 @@ func TestBlero_DequeueJob_Concurrent(t *testing.T) {
 	defer deleteDBFolder(testDBPath)
 	defer bl.Stop()
 
+	q := bl.queue
+
 	j1Name := "TestJob"
 	j1ID, err := bl.EnqueueJob(j1Name)
 	assert.NoError(t, err)
@@ -161,13 +167,13 @@ func TestBlero_DequeueJob_Concurrent(t *testing.T) {
 	ch := make(chan *Job)
 
 	go func() {
-		j, err := bl.dequeueJob()
+		j, err := q.dequeueJob()
 		assert.NoError(t, err)
 		ch <- j
 	}()
 
 	go func() {
-		j, err := bl.dequeueJob()
+		j, err := q.dequeueJob()
 		assert.NoError(t, err)
 		ch <- j
 	}()
@@ -196,6 +202,8 @@ func TestBlero_MarkJobDone(t *testing.T) {
 	defer deleteDBFolder(testDBPath)
 	defer bl.Stop()
 
+	q := bl.queue
+
 	j1Name := "TestJob"
 	j1ID, err := bl.EnqueueJob(j1Name)
 	assert.NoError(t, err)
@@ -205,19 +213,19 @@ func TestBlero_MarkJobDone(t *testing.T) {
 	assert.NoError(t, err)
 
 	// move job 1 to inprogress
-	_, err = bl.dequeueJob()
+	_, err = q.dequeueJob()
 	assert.NoError(t, err)
 	// move job 2 to inprogress
-	_, err = bl.dequeueJob()
+	_, err = q.dequeueJob()
 	assert.NoError(t, err)
 
-	err = bl.markJobDone(j1ID, JobComplete)
+	err = q.markJobDone(j1ID, JobComplete)
 	assert.NoError(t, err)
 
-	err = bl.markJobDone(j2ID, JobFailed)
+	err = q.markJobDone(j2ID, JobFailed)
 	assert.NoError(t, err)
 
-	err = bl.db.View(func(txn *badger.Txn) error {
+	err = q.db.View(func(txn *badger.Txn) error {
 		// check that job 1 is not in the inprogress queue anymore
 		_, err := txn.Get([]byte("q:inprogress:" + strconv.Itoa(int(j1ID))))
 		assert.EqualError(t, err, badger.ErrKeyNotFound.Error())
@@ -259,10 +267,10 @@ func TestBlero_MarkJobDone(t *testing.T) {
 	assert.NoError(t, err)
 
 	// check random job id is not in queue error
-	err = bl.markJobDone(uint64(4151231), JobComplete)
+	err = q.markJobDone(uint64(4151231), JobComplete)
 	assert.EqualError(t, err, "Job 4151231 not found in InProgress queue")
 
 	// check moving job to pending error
-	err = bl.markJobDone(j2ID, JobPending)
+	err = q.markJobDone(j2ID, JobPending)
 	assert.EqualError(t, err, "Can only move to Complete or Failed Status")
 }
