@@ -88,15 +88,14 @@ func (q *Queue) EnqueueJob(name string) (uint64, error) {
 	j := &Job{ID: num + 1, Name: name}
 
 	err = q.db.Update(func(txn *badger.Txn) error {
-		var b bytes.Buffer
-		err := gob.NewEncoder(&b).Encode(j)
+		b, err := encodeJob(j)
 		if err != nil {
 			return err
 		}
 
 		key := getJobKey(JobPending, j.ID)
 		fmt.Printf("Enqueing %v\n", key)
-		err = txn.Set([]byte(key), b.Bytes())
+		err = txn.Set([]byte(key), b)
 
 		return err
 	})
@@ -105,6 +104,15 @@ func (q *Queue) EnqueueJob(name string) (uint64, error) {
 	}
 
 	return j.ID, nil
+}
+
+func encodeJob(j *Job) ([]byte, error) {
+	var b bytes.Buffer
+	err := gob.NewEncoder(&b).Encode(j)
+	if err != nil {
+		return nil, err
+	}
+	return b.Bytes(), nil
 }
 
 // JobStatus Enum Type
