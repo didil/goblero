@@ -28,23 +28,25 @@ func TestBlero_RegisterUnregisterProcessor(t *testing.T) {
 	})
 
 	d := bl.dispatcher
+	pStore := d.pStore
 
 	pID1 := bl.RegisterProcessor(p1)
 	pID2 := bl.RegisterProcessor(p2)
 	pID3 := bl.RegisterProcessor(p3)
-	assert.Len(t, d.processors, 3)
+	assert.Len(t, pStore.processors, 3)
+	assert.Equal(t, 3, pStore.maxProcessorID)
 
 	bl.UnregisterProcessor(pID2)
-	assert.Len(t, d.processors, 2)
-	assert.Equal(t, p1, d.processors[pID1])
-	assert.Equal(t, nil, d.processors[pID2])
-	assert.NotNil(t, d.processors[pID3])
+	assert.Len(t, pStore.processors, 2)
+	assert.Equal(t, p1, pStore.processors[pID1])
+	assert.Equal(t, nil, pStore.processors[pID2])
+	assert.NotNil(t, pStore.processors[pID3])
 
 	bl.UnregisterProcessor(pID3)
-	assert.Len(t, d.processors, 1)
-	assert.Equal(t, p1, d.processors[pID1])
-	assert.Equal(t, nil, d.processors[pID2])
-	assert.Equal(t, nil, d.processors[pID3])
+	assert.Len(t, pStore.processors, 1)
+	assert.Equal(t, p1, pStore.processors[pID1])
+	assert.Equal(t, nil, pStore.processors[pID2])
+	assert.Equal(t, nil, pStore.processors[pID3])
 }
 
 type testProcessor struct {

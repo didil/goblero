@@ -24,7 +24,8 @@ type Blero struct {
 // New creates new Blero Backend
 func New(opts Opts) *Blero {
 	bl := &Blero{opts: opts}
-	bl.dispatcher = NewDispatcher()
+	pStore := NewProcessorsStore()
+	bl.dispatcher = NewDispatcher(pStore)
 	bl.queue = NewQueue(QueueOpts{DBPath: opts.DBPath, Logger: opts.Logger})
 	return bl
 }

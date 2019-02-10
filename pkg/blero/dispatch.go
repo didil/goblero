@@ -8,21 +8,18 @@ import (
 
 // Dispatcher struct
 type Dispatcher struct {
-	dispatchL      sync.Mutex
-	maxProcessorID int
-	processors     map[int]Processor
-	processing     map[int]uint64
-	ch             chan int
-	quitCh         chan struct{}
+	dispatchL sync.Mutex
+	ch        chan int
+	quitCh    chan struct{}
+	pStore    *ProcessorsStore
 }
 
 // NewDispatcher creates new Dispatcher
-func NewDispatcher() *Dispatcher {
+func NewDispatcher(pStore *ProcessorsStore) *Dispatcher {
 	d := &Dispatcher{}
-	d.processors = make(map[int]Processor)
-	d.processing = make(map[int]uint64)
 	d.ch = make(chan int, 100)
 	d.quitCh = make(chan struct{})
+	d.pStore = pStore
 	return d
 }
 
@@ -53,15 +50,14 @@ func (d *Dispatcher) RegisterProcessor(p Processor) int {
 	d.dispatchL.Lock()
 	defer d.dispatchL.Unlock()
 
-	d.maxProcessorID++
-	d.processors[d.maxProcessorID] = p
+	pID := d.pStore.RegisterProcessor(p)
 
 	go func() {
 		// signal that the processor is now available
 		d.ch <- 1
 	}()
 
-	return d.maxProcessorID
+	return pID
 }
 
 // UnregisterProcessor unregisters a processor
@@ -70,7 +66,7 @@ func (d *Dispatcher) UnregisterProcessor(pID int) {
 	d.dispatchL.Lock()
 	defer d.dispatchL.Unlock()
 
-	delete(d.processors, pID)
+	d.pStore.UnregisterProcessor(pID)
 }
 
 // assignJobs assigns pending jobs from the queue to free processors
@@ -78,12 +74,12 @@ func (d *Dispatcher) assignJobs(q *Queue) error {
 	d.dispatchL.Lock()
 	defer d.dispatchL.Unlock()
 
-	for pID := range d.processors {
-		if _, ok := d.processing[pID]; !ok {
-			err := d.assignJob(q, pID)
-			if err != nil {
-				return err
-			}
+	pIDs := d.pStore.GetAvailableProcessorsIDs()
+
+	for _, pID := range pIDs {
+		err := d.assignJob(q, pID)
+		if err != nil {
+			return err
 		}
 	}
 
@@ -93,7 +89,7 @@ func (d *Dispatcher) assignJobs(q *Queue) error {
 // assignJob assigns a pending job processor #pID and starts the run
 // NOT THREAD SAFE !! only call from assignJobs
 func (d *Dispatcher) assignJob(q *Queue, pID int) error {
-	p := d.processors[pID]
+	p := d.pStore.GetProcessor(pID)
 	if p == nil {
 		return fmt.Errorf("Processor %v not found", pID)
 	}
@@ -109,11 +105,12 @@ func (d *Dispatcher) assignJob(q *Queue, pID int) error {
 
 	fmt.Printf("Assigning job %v to processor %v\n", j.ID, pID)
 
-	if _, ok := d.processing[pID]; ok {
-		return fmt.Errorf("Cannot assign job %v to Processor %v. Processor busy with %v", j.ID, pID, d.processing[pID])
+	if d.pStore.IsProcessorBusy(pID) {
+		return fmt.Errorf("Cannot assign job %v to Processor %v. Processor busy", j.ID, pID)
 	}
 
-	d.processing[pID] = j.ID
+	d.pStore.SetProcessing(pID, j.ID)
+
 	go d.runJob(q, pID, p, j)
 
 	return nil
@@ -124,7 +121,7 @@ func (d *Dispatcher) unassignJob(pID int) {
 	d.dispatchL.Lock()
 	defer d.dispatchL.Unlock()
 
-	delete(d.processing, pID)
+	d.pStore.UnsetProcessing(pID)
 }
 
 // runJob runs a job on the corresponding processor and moves it to the right queue depending on results
