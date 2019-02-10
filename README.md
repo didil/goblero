@@ -3,7 +3,7 @@
 Pure Go embedded persistent job queue, backed by [BadgerDB](https://github.com/dgraph-io/badger)
 
 [![Build Status](https://travis-ci.org/didil/goblero.svg?branch=master)](https://travis-ci.org/didil/goblero)
-[![codecov](https://codecov.io/gh/didil/goblero/branch/master/graph/badge.svg)](https://codecov.io/gh/didil/goblero)
+[![Coverage Status](https://coveralls.io/repos/github/didil/goblero/badge.svg?branch=master)](https://coveralls.io/github/didil/goblero?branch=master)
 [![goreportcard](https://goreportcard.com/badge/github.com/didil/goblero)](https://goreportcard.com/report/github.com/didil/goblero)
 [![codebeat badge](https://codebeat.co/badges/1d261e4f-36ff-42b5-b015-e31eb7aa7e7d)](https://codebeat.co/projects/github-com-didil-goblero-master)
 
