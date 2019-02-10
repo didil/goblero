@@ -63,7 +63,8 @@ func (m *testProcessor) Run(j *Job) error {
 
 func TestBlero_assignJobs(t *testing.T) {
 	bl := New(Opts{DBPath: testDBPath})
-	err := bl.Start()
+	// only start the queue and not the dispatch loop to allow manual jobs assignment
+	err := bl.queue.Start()
 	assert.NoError(t, err)
 
 	// stop gracefully
@@ -139,4 +140,8 @@ func TestBlero_assignJobs(t *testing.T) {
 	p1.AssertExpectations(t)
 	p2.AssertExpectations(t)
 	p3.AssertExpectations(t)
+}
+
+func TestBlero_AutoProcessing(t *testing.T) {
+	panic("not implemented")
 }

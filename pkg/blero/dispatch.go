@@ -12,7 +12,8 @@ type Dispatcher struct {
 	maxProcessorID int
 	processors     map[int]Processor
 	processing     map[int]uint64
-	ch             chan *Queue
+	ch             chan int
+	quitCh         chan struct{}
 }
 
 // NewDispatcher creates new Dispatcher
@@ -20,17 +21,23 @@ func NewDispatcher() *Dispatcher {
 	d := &Dispatcher{}
 	d.processors = make(map[int]Processor)
 	d.processing = make(map[int]uint64)
-	d.ch = make(chan *Queue)
+	d.ch = make(chan int, 100)
+	d.quitCh = make(chan struct{})
 	return d
 }
 
 // StartLoop starts the dispatcher assignment loop
-func (d *Dispatcher) StartLoop() {
+func (d *Dispatcher) StartLoop(q *Queue) {
 	go func() {
-		for q := range d.ch {
-			err := d.assignJobs(q)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Cannot assign jobs: %v", err)
+		for {
+			select {
+			case <-d.ch:
+				err := d.assignJobs(q)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "Cannot assign jobs: %v", err)
+				}
+			case <-d.quitCh: // loop was stopped
+				return
 			}
 		}
 	}()
@@ -38,7 +45,7 @@ func (d *Dispatcher) StartLoop() {
 
 // StopLoop stops the dispatcher assignment loop
 func (d *Dispatcher) StopLoop() {
-	close(d.ch)
+	close(d.quitCh)
 }
 
 // RegisterProcessor registers a new processor
@@ -48,6 +55,12 @@ func (d *Dispatcher) RegisterProcessor(p Processor) int {
 
 	d.maxProcessorID++
 	d.processors[d.maxProcessorID] = p
+
+	go func() {
+		// signal that the processor is now be available
+		d.ch <- 1
+	}()
+
 	return d.maxProcessorID
 }
 
@@ -116,7 +129,7 @@ func (d *Dispatcher) unassignJob(pID int) {
 
 // runJob runs a job on the corresponding processor and moves it to the right queue depending on results
 func (d *Dispatcher) runJob(q *Queue, pID int, p Processor, j *Job) {
-	defer d.unassignJob(pID)
+	defer d.processorDone(pID)
 	err := p.Run(j)
 	if err != nil {
 		fmt.Printf("Processor: %v. Job %v failed with err: %v\n", pID, j.ID, err)
@@ -131,4 +144,13 @@ func (d *Dispatcher) runJob(q *Queue, pID int, p Processor, j *Job) {
 	if err != nil {
 		fmt.Printf("markJobDone -> %v JobComplete failed: %v\n", j.ID, err)
 	}
+}
+
+func (d *Dispatcher) processorDone(pID int) {
+	d.unassignJob(pID)
+
+	go func() {
+		// signal that the processor might now be available
+		d.ch <- 1
+	}()
 }

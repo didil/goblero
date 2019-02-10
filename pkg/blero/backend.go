@@ -31,7 +31,12 @@ func New(opts Opts) *Blero {
 
 // Start Blero
 func (bl *Blero) Start() error {
-	return bl.queue.Start()
+	err := bl.queue.Start()
+	if err != nil {
+		return err
+	}
+	bl.dispatcher.StartLoop(bl.queue)
+	return nil
 }
 
 // Stop Blero and Release resources
@@ -42,8 +47,23 @@ func (bl *Blero) Stop() error {
 
 // EnqueueJob enqueues a new Job
 func (bl *Blero) EnqueueJob(name string) (uint64, error) {
-	return bl.queue.EnqueueJob(name)
+	jID, err := bl.queue.EnqueueJob(name)
+	if err != nil {
+		return 0, err
+	}
+
+	go func() {
+		// signal that a new job was enqueued
+		bl.dispatcher.ch <- 1
+	}()
+
+	return jID, nil
 }
+
+// EnqueueJobs enqueues new Jobs
+/*func (bl *Blero) EnqueueJobs(names string) (uint64, error) {
+
+}*/
 
 // RegisterProcessor registers a new processor
 func (bl *Blero) RegisterProcessor(p Processor) int {
