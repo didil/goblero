@@ -162,6 +162,9 @@ func TestBlero_AutoProcessing_ProcessorFirst(t *testing.T) {
 		return nil
 	}))
 
+	// simulate wait period
+	time.Sleep(50 * time.Millisecond)
+
 	j1Name := "MyJob"
 	j2Name := "MyOtherJob"
 
@@ -194,6 +197,9 @@ func TestBlero_AutoProcessing_JobsFirst(t *testing.T) {
 
 	bl.EnqueueJob(j1Name)
 	bl.EnqueueJob(j2Name)
+
+	// simulate wait period
+	time.Sleep(50 * time.Millisecond)
 
 	bl.RegisterProcessor(ProcessorFunc(func(j *Job) error {
 		m.Lock()

@@ -13,4 +13,5 @@ script:
 - make test-ci
 
 after_success:
-- bash <(curl -s "https://codecov.io/bash")
+- bash <(curl -s "https://codecov.io/bash")	
+- $HOME/gopath/bin/goveralls -coverprofile=coverage.txt -service=travis-ci -repotoken $COVERALLS_TOKEN

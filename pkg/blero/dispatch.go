@@ -57,7 +57,7 @@ func (d *Dispatcher) RegisterProcessor(p Processor) int {
 	d.processors[d.maxProcessorID] = p
 
 	go func() {
-		// signal that the processor is now be available
+		// signal that the processor is now available
 		d.ch <- 1
 	}()
 
