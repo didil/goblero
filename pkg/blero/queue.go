@@ -97,10 +97,8 @@ func (q *Queue) EnqueueJob(name string) (uint64, error) {
 		key := getJobKey(JobPending, j.ID)
 		fmt.Printf("Enqueing %v\n", key)
 		err = txn.Set([]byte(key), b.Bytes())
-		if err != nil {
-			return err
-		}
-		return nil
+
+		return err
 	})
 	if err != nil {
 		return 0, err
@@ -161,26 +159,13 @@ func (q *Queue) dequeueJob() (*Job, error) {
 			return err
 		}
 
-		// remove from Pending queue
-		err = txn.Delete(item.Key())
-		if err != nil {
-			return err
-		}
+		// Move from from Pending queue to InProgress queue
+		err = moveItem(txn, item.Key(), []byte(getJobKey(JobInProgress, j.ID)), b)
 
-		// create in InProgress queue
-		keyInProgress := getJobKey(JobInProgress, j.ID)
-		err = txn.Set([]byte(keyInProgress), b)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
-	if err != nil {
-		return nil, err
-	}
 
-	return j, nil
+	return j, err
 }
 
 // markJobDone moves a job from the inprogress status to complete/failed
@@ -192,7 +177,8 @@ func (q *Queue) markJobDone(id uint64, status JobStatus) error {
 	q.dbL.Lock()
 	defer q.dbL.Unlock()
 	err := q.db.Update(func(txn *badger.Txn) error {
-		item, err := txn.Get([]byte(getJobKey(JobInProgress, id)))
+		key := []byte(getJobKey(JobInProgress, id))
+		item, err := txn.Get(key)
 		if err == badger.ErrKeyNotFound {
 			return fmt.Errorf("Job %v not found in InProgress queue", id)
 		}
@@ -205,24 +191,24 @@ func (q *Queue) markJobDone(id uint64, status JobStatus) error {
 			return err
 		}
 
-		// remove from InProgress queue
-		err = txn.Delete(item.Key())
-		if err != nil {
-			return err
-		}
+		// Move from from InProgress queue to dest queue
+		err = moveItem(txn, key, []byte(getJobKey(status, id)), b)
 
-		// create in dest queue
-		destKey := getJobKey(status, id)
-		err = txn.Set([]byte(destKey), b)
-		if err != nil {
-			return err
-		}
-
-		return nil
+		return err
 	})
+
+	return err
+}
+
+func moveItem(txn *badger.Txn, oldKey []byte, newKey []byte, b []byte) error {
+	// remove from Source queue
+	err := txn.Delete(oldKey)
 	if err != nil {
 		return err
 	}
 
-	return nil
+	// create in Dest queue
+	err = txn.Set(newKey, b)
+
+	return err
 }
