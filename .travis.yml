@@ -7,7 +7,7 @@ go:
 - 1.11.x
 
 before_install:
-- make deps
+- make deps-ci
 
 script:
 - make test-ci
