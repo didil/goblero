@@ -19,7 +19,7 @@ Pure Go, Simple, Embedded, Persistent Job Queue, backed by [BadgerDB](https://gi
 - The storage engine used is [BadgerDB](https://github.com/dgraph-io/badger)
 
 Todo:
-- Restart interrupted jobs after restart
+- Restart interrupted jobs after app restart/crashes
 - Sweep completed jobs from the "complete" queue
 - Failed Jobs retry options
 - Allow batch enqueuing
