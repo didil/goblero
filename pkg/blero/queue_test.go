@@ -26,7 +26,7 @@ func deleteDBFolder(dbPath string) {
 }
 
 func TestBlero_EnqueueJob(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	err := bl.Start()
 	assert.NoError(t, err)
 
@@ -59,7 +59,7 @@ func TestBlero_EnqueueJob(t *testing.T) {
 }
 
 func TestBlero_EnqueueJob_Concurrent(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	err := bl.Start()
 	assert.NoError(t, err)
 
@@ -89,7 +89,7 @@ func TestBlero_EnqueueJob_Concurrent(t *testing.T) {
 }
 
 func TestBlero_DequeueJob(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	err := bl.Start()
 	assert.NoError(t, err)
 
@@ -134,7 +134,7 @@ func TestBlero_DequeueJob(t *testing.T) {
 }
 
 func TestBlero_DequeueJob_Concurrent(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	err := bl.Start()
 	assert.NoError(t, err)
 
@@ -182,7 +182,7 @@ func TestBlero_DequeueJob_Concurrent(t *testing.T) {
 }
 
 func TestBlero_MarkJobDone(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	err := bl.Start()
 	assert.NoError(t, err)
 

@@ -1,37 +1,25 @@
 package blero
 
-import (
-	"github.com/dgraph-io/badger"
-)
-
-// Opts struct
-type Opts struct {
-	// Required
-	// badger db folder path, the folder will be created if it doesn't exist
-	DBPath string
-	// Optional
-	// badger.Logger interface logger
-	Logger badger.Logger
-}
+import "fmt"
 
 // Blero struct
 type Blero struct {
-	opts       Opts
 	dispatcher *Dispatcher
 	queue      *Queue
 }
 
 // New creates new Blero Backend
-func New(opts Opts) *Blero {
-	bl := &Blero{opts: opts}
+func New(dbPath string) *Blero {
+	bl := &Blero{}
 	pStore := NewProcessorsStore()
 	bl.dispatcher = NewDispatcher(pStore)
-	bl.queue = NewQueue(QueueOpts{DBPath: opts.DBPath, Logger: opts.Logger})
+	bl.queue = NewQueue(QueueOpts{DBPath: dbPath})
 	return bl
 }
 
 // Start Blero
 func (bl *Blero) Start() error {
+	fmt.Println("Starting Blero ...")
 	err := bl.queue.Start()
 	if err != nil {
 		return err
@@ -42,6 +30,7 @@ func (bl *Blero) Start() error {
 
 // Stop Blero and Release resources
 func (bl *Blero) Stop() error {
+	fmt.Println("Stopping Blero ...")
 	bl.dispatcher.StopLoop()
 	return bl.queue.Stop()
 }
@@ -67,6 +56,11 @@ func (bl *Blero) EnqueueJob(name string, data []byte) (uint64, error) {
 // RegisterProcessor registers a new processor
 func (bl *Blero) RegisterProcessor(p Processor) int {
 	return bl.dispatcher.RegisterProcessor(p)
+}
+
+// RegisterProcessorFunc registers a new processor
+func (bl *Blero) RegisterProcessorFunc(f func(j *Job) error) int {
+	return bl.dispatcher.RegisterProcessor(ProcessorFunc(f))
 }
 
 // UnregisterProcessor unregisters a processor

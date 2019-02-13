@@ -5,6 +5,7 @@ import (
 	"encoding/gob"
 	"errors"
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 
@@ -31,20 +32,30 @@ func NewQueue(opts QueueOpts) *Queue {
 	return q
 }
 
+type badgerLogger struct{}
+
+func (l *badgerLogger) Infof(format string, a ...interface{}) {
+	// ignore badger info logs
+}
+func (l *badgerLogger) Errorf(format string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, a...)
+}
+func (l *badgerLogger) Warningf(format string, a ...interface{}) {
+	fmt.Fprintf(os.Stderr, format, a...)
+}
+
 // Start Queue
 func (q *Queue) Start() error {
 	// validate opts
 	if q.opts.DBPath == "" {
-		return errors.New("Opts: DBPath is required")
+		return errors.New("DBPath is required")
 	}
 
 	// open db
 	badgerOpts := badger.DefaultOptions
 	badgerOpts.Dir = q.opts.DBPath
 	badgerOpts.ValueDir = q.opts.DBPath
-	if q.opts.Logger != nil {
-		badgerOpts.Logger = q.opts.Logger
-	}
+	badgerOpts.Logger = &badgerLogger{}
 
 	db, err := badger.Open(badgerOpts)
 	if err != nil {

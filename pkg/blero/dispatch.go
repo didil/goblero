@@ -113,8 +113,6 @@ func (d *Dispatcher) assignJob(q *Queue, pID int) error {
 		return nil
 	}
 
-	fmt.Printf("Assigning job %v to processor %v\n", j.ID, pID)
-
 	if d.pStore.IsProcessorBusy(pID) {
 		return fmt.Errorf("Cannot assign job %v to Processor %v. Processor busy", j.ID, pID)
 	}

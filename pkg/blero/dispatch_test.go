@@ -20,20 +20,20 @@ func (p *noOpProcessor) Run(j *Job) error {
 }
 
 func TestBlero_RegisterUnregisterProcessor(t *testing.T) {
-	bl := New(Opts{})
+	bl := New(testDBPath)
 	p1 := &noOpProcessor{}
 	p2 := &noOpProcessor{}
 	// test usage of ProcessorFunc
-	p3 := ProcessorFunc(func(j *Job) error {
+	p3 := func(j *Job) error {
 		return nil
-	})
+	}
 
 	d := bl.dispatcher
 	pStore := d.pStore
 
 	pID1 := bl.RegisterProcessor(p1)
 	pID2 := bl.RegisterProcessor(p2)
-	pID3 := bl.RegisterProcessor(p3)
+	pID3 := bl.RegisterProcessorFunc(p3)
 	assert.Len(t, pStore.processors, 3)
 	assert.Equal(t, 3, pStore.maxProcessorID)
 
@@ -66,7 +66,7 @@ func (m *testProcessor) Run(j *Job) error {
 }
 
 func TestBlero_assignJobs(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	// only start the queue and not the dispatch loop to allow manual jobs assignment
 	err := bl.queue.Start()
 	assert.NoError(t, err)
@@ -147,7 +147,7 @@ func TestBlero_assignJobs(t *testing.T) {
 }
 
 func TestBlero_AutoProcessing_ProcessorFirst(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	err := bl.Start()
 	assert.NoError(t, err)
 
@@ -184,7 +184,7 @@ func TestBlero_AutoProcessing_ProcessorFirst(t *testing.T) {
 }
 
 func TestBlero_AutoProcessing_JobsFirst(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	err := bl.Start()
 	assert.NoError(t, err)
 
@@ -221,7 +221,7 @@ func TestBlero_AutoProcessing_JobsFirst(t *testing.T) {
 }
 
 func TestBlero_AutoProcessing_GoRoutinesHanging(t *testing.T) {
-	bl := New(Opts{DBPath: testDBPath})
+	bl := New(testDBPath)
 	// only start the queue and not the dispatch loop to not run assign and show goroutines hanging problem
 	err := bl.queue.Start()
 	assert.NoError(t, err)
