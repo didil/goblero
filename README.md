@@ -25,7 +25,7 @@ Todo:
 - Allow batch enqueuing
 - Add support for Go contexts
 - Test in real conditions under high load
-- Expose Prometheus Apps in an Http handler/server
+- Expose Prometheus Metrics in an Http handler
 - Optimize performance / Locking
 
 *P.S: Why is the library named Goblero ? Go for the Go programming language obviously, and Badger in french is "Blaireau", but blero is easier to pronounce :)* 
