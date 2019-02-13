@@ -71,38 +71,3 @@ func BenchmarkDequeue(b *testing.B) {
 		}
 	})
 }
-
-/*
-func BenchmarkEnqueue(b *testing.B) {
-	bl := New(testDBPath)
-	err := bl.Start()
-	if err != nil {
-		b.Error(err)
-	}
-
-	// stop gracefully
-	defer deleteDBFolder(testDBPath)
-	defer bl.Stop()
-
-	jobName := "MyJob"
-	jobData := []byte("MyJobData")
-	b.ResetTimer()
-	b.Run("EnqueueJob", func(b *testing.B) {
-		for n := 0; n < b.N; n++ {
-			_, err := bl.EnqueueJob(jobName, jobData)
-			if err != nil {
-				b.Error(err)
-			}
-		}
-	})
-	b.ResetTimer()
-	b.Run("dequeueJob", func(b *testing.B) {
-		for n := 0; n < b.N; n++ {
-			_, err := bl.queue.dequeueJob()
-			if err != nil {
-				b.Error(err)
-			}
-		}
-	})
-}
-*/

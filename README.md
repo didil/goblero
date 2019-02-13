@@ -17,6 +17,12 @@ Goblero is a simple, embedded, persistent job queue backed by BadgerDB. It can p
 ## Usage 
 The full API is documented on [godoc.org](https://godoc.org/github.com/didil/goblero/pkg/blero). There is also a demo repo [goblero-demo](https://github.com/didil/goblero-demo/tree/master)
 
+Get package
+````
+go get -u github.com/didil/goblero/pkg/blero
+````
+API
+
 ````
 // Create a new Blero backend
 bl := blero.New("db/")
