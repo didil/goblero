@@ -24,6 +24,7 @@ Todo:
 - Failed Jobs retry options
 - Allow batch enqueuing
 - Test in real conditions under high load
+- Optimize performance / Locking
 
 *P.S: Why is the library named Goblero ? Go for the Go programming language obviously, and Badger in french is "Blaireau", but blero is easier to pronounce :)* 
 
