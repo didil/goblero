@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strconv"
 	"sync"
 
 	"github.com/dgraph-io/badger"
@@ -143,8 +142,12 @@ func getQueueKeyPrefix(status jobStatus) string {
 	return fmt.Sprintf("q:%v:", status)
 }
 
-func getJobKey(status jobStatus, ID uint64) string {
-	return getQueueKeyPrefix(status) + strconv.Itoa(int(ID))
+func getJobKey(status jobStatus, jID uint64) string {
+	return getQueueKeyPrefix(status) + jIDString(jID)
+}
+
+func jIDString(jID uint64) string {
+	return fmt.Sprintf("%020d", jID)
 }
 
 // dequeueJob moves the next pending job from the pending status to inprogress

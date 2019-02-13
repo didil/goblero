@@ -4,7 +4,6 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"testing"
 
 	"github.com/dgraph-io/badger"
@@ -46,7 +45,7 @@ func TestBlero_EnqueueJob(t *testing.T) {
 
 	var j *Job
 	err = q.db.View(func(txn *badger.Txn) error {
-		j, err = getJobForKey(txn, []byte("q:pending:"+strconv.Itoa(int(jID))))
+		j, err = getJobForKey(txn, []byte("q:pending:"+jIDString(jID)))
 		assert.NoError(t, err)
 
 		return nil
@@ -115,15 +114,15 @@ func TestBlero_DequeueJob(t *testing.T) {
 
 	err = q.db.View(func(txn *badger.Txn) error {
 		// check that job 1 is not in the pending queue anymore
-		_, err := txn.Get([]byte("q:pending:" + strconv.Itoa(int(j1ID))))
+		_, err := txn.Get([]byte("q:pending:" + jIDString(j1ID)))
 		assert.EqualError(t, err, badger.ErrKeyNotFound.Error())
 
 		// check that job 2 is still in the pending queue
-		_, err = txn.Get([]byte("q:pending:" + strconv.Itoa(int(j2ID))))
+		_, err = txn.Get([]byte("q:pending:" + jIDString(j2ID)))
 		assert.NoError(t, err)
 
 		// get job 1 from inprogress queue
-		completeJob, err := getJobForKey(txn, []byte("q:inprogress:"+strconv.Itoa(int(j1ID))))
+		completeJob, err := getJobForKey(txn, []byte("q:inprogress:"+jIDString(j1ID)))
 		assert.NoError(t, err)
 
 		assert.Equal(t, j1ID, completeJob.ID)
@@ -215,21 +214,21 @@ func TestBlero_MarkJobDone(t *testing.T) {
 
 	err = q.db.View(func(txn *badger.Txn) error {
 		// check that job 1 is not in the inprogress queue anymore
-		_, err := txn.Get([]byte("q:inprogress:" + strconv.Itoa(int(j1ID))))
+		_, err := txn.Get([]byte("q:inprogress:" + jIDString(j1ID)))
 		assert.EqualError(t, err, badger.ErrKeyNotFound.Error())
 
 		// check that job 2 is not in the inprogress queue anymore
-		_, err = txn.Get([]byte("q:inprogress:" + strconv.Itoa(int(j2ID))))
+		_, err = txn.Get([]byte("q:inprogress:" + jIDString(j2ID)))
 		assert.EqualError(t, err, badger.ErrKeyNotFound.Error())
 
 		// check that job 1 is now in the complete queue
-		completeJob, err := getJobForKey(txn, []byte("q:complete:"+strconv.Itoa(int(j1ID))))
+		completeJob, err := getJobForKey(txn, []byte("q:complete:"+jIDString(j1ID)))
 		assert.NoError(t, err)
 
 		assert.Equal(t, j1ID, completeJob.ID)
 		assert.Equal(t, j1Name, completeJob.Name)
 
-		failedJob, err := getJobForKey(txn, []byte("q:failed:"+strconv.Itoa(int(j2ID))))
+		failedJob, err := getJobForKey(txn, []byte("q:failed:"+jIDString(j2ID)))
 		assert.NoError(t, err)
 
 		assert.Equal(t, j2ID, failedJob.ID)

@@ -3,7 +3,6 @@ package blero
 import (
 	"fmt"
 	"runtime"
-	"strconv"
 	"sync"
 	"testing"
 	"time"
@@ -126,15 +125,15 @@ func TestBlero_assignJobs(t *testing.T) {
 
 	err = q.db.View(func(txn *badger.Txn) error {
 		// check that job 1 is in the complete queue
-		_, err := txn.Get([]byte("q:complete:" + strconv.Itoa(int(j1ID))))
+		_, err := txn.Get([]byte("q:complete:" + jIDString(j1ID)))
 		assert.NoError(t, err)
 
 		// check that job 2 is in the complete queue
-		_, err = txn.Get([]byte("q:complete:" + strconv.Itoa(int(j2ID))))
+		_, err = txn.Get([]byte("q:complete:" + jIDString(j2ID)))
 		assert.NoError(t, err)
 
 		// check that job 3 is in the failed queue
-		_, err = txn.Get([]byte("q:failed:" + strconv.Itoa(int(j3ID))))
+		_, err = txn.Get([]byte("q:failed:" + jIDString(j3ID)))
 		assert.NoError(t, err)
 
 		return nil
