@@ -4,38 +4,38 @@ import "fmt"
 
 // Blero struct
 type Blero struct {
-	dispatcher *Dispatcher
-	queue      *Queue
+	dispatcher *dispatcher
+	queue      *queue
 }
 
 // New creates new Blero Backend
 func New(dbPath string) *Blero {
 	bl := &Blero{}
-	pStore := NewProcessorsStore()
-	bl.dispatcher = NewDispatcher(pStore)
-	bl.queue = NewQueue(QueueOpts{DBPath: dbPath})
+	pStore := newProcessorsStore()
+	bl.dispatcher = newDispatcher(pStore)
+	bl.queue = newQueue(queueOpts{DBPath: dbPath})
 	return bl
 }
 
 // Start Blero
 func (bl *Blero) Start() error {
 	fmt.Println("Starting Blero ...")
-	err := bl.queue.Start()
+	err := bl.queue.start()
 	if err != nil {
 		return err
 	}
-	bl.dispatcher.StartLoop(bl.queue)
+	bl.dispatcher.startLoop(bl.queue)
 	return nil
 }
 
 // Stop Blero and Release resources
 func (bl *Blero) Stop() error {
 	fmt.Println("Stopping Blero ...")
-	bl.dispatcher.StopLoop()
-	return bl.queue.Stop()
+	bl.dispatcher.stopLoop()
+	return bl.queue.stop()
 }
 
-// EnqueueJob enqueues a new Job
+// EnqueueJob enqueues a new Job and returns the job id
 func (bl *Blero) EnqueueJob(name string, data []byte) (uint64, error) {
 	jID, err := bl.queue.EnqueueJob(name, data)
 	if err != nil {
@@ -43,7 +43,7 @@ func (bl *Blero) EnqueueJob(name string, data []byte) (uint64, error) {
 	}
 
 	// signal that a new job was enqueued
-	bl.dispatcher.SignalLoop()
+	bl.dispatcher.signalLoop()
 
 	return jID, nil
 }
@@ -53,18 +53,18 @@ func (bl *Blero) EnqueueJob(name string, data []byte) (uint64, error) {
 
 }*/
 
-// RegisterProcessor registers a new processor
+// RegisterProcessor registers a new processor and returns the processor id
 func (bl *Blero) RegisterProcessor(p Processor) int {
-	return bl.dispatcher.RegisterProcessor(p)
+	return bl.dispatcher.registerProcessor(p)
 }
 
-// RegisterProcessorFunc registers a new processor
+// RegisterProcessorFunc registers a new ProcessorFunc and returns the processor id
 func (bl *Blero) RegisterProcessorFunc(f func(j *Job) error) int {
-	return bl.dispatcher.RegisterProcessor(ProcessorFunc(f))
+	return bl.dispatcher.registerProcessor(ProcessorFunc(f))
 }
 
 // UnregisterProcessor unregisters a processor
 // No more jobs will be assigned but if will not cancel a job that already started processing
 func (bl *Blero) UnregisterProcessor(pID int) {
-	bl.dispatcher.UnregisterProcessor(pID)
+	bl.dispatcher.unregisterProcessor(pID)
 }

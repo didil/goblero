@@ -12,23 +12,23 @@ import (
 	"github.com/dgraph-io/badger"
 )
 
-// QueueOpts struct
-type QueueOpts struct {
+// queueOpts struct
+type queueOpts struct {
 	DBPath string
 	Logger badger.Logger
 }
 
-// Queue struct
-type Queue struct {
-	opts QueueOpts
+// queue struct
+type queue struct {
+	opts queueOpts
 	db   *badger.DB
 	seq  *badger.Sequence
 	dbL  sync.Mutex
 }
 
-// NewQueue creates new Queue
-func NewQueue(opts QueueOpts) *Queue {
-	q := &Queue{opts: opts}
+// newQueue creates new ueue
+func newQueue(opts queueOpts) *queue {
+	q := &queue{opts: opts}
 	return q
 }
 
@@ -44,8 +44,8 @@ func (l *badgerLogger) Warningf(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
 }
 
-// Start Queue
-func (q *Queue) Start() error {
+// start Queue
+func (q *queue) start() error {
 	// validate opts
 	if q.opts.DBPath == "" {
 		return errors.New("DBPath is required")
@@ -73,8 +73,8 @@ func (q *Queue) Start() error {
 	return nil
 }
 
-// Stop Queue and Release resources
-func (q *Queue) Stop() error {
+// stop Queue and Release resources
+func (q *queue) stop() error {
 	// release sequence
 	err := q.seq.Release()
 	if err != nil {
@@ -91,7 +91,7 @@ func (q *Queue) Stop() error {
 }
 
 // EnqueueJob enqueues a new Job to the Pending queue
-func (q *Queue) EnqueueJob(name string, data []byte) (uint64, error) {
+func (q *queue) EnqueueJob(name string, data []byte) (uint64, error) {
 	num, err := q.seq.Next()
 	if err != nil {
 		return 0, err
@@ -104,7 +104,7 @@ func (q *Queue) EnqueueJob(name string, data []byte) (uint64, error) {
 			return err
 		}
 
-		key := getJobKey(JobPending, j.ID)
+		key := getJobKey(jobPending, j.ID)
 		err = txn.Set([]byte(key), b)
 
 		return err
@@ -125,36 +125,36 @@ func encodeJob(j *Job) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
-// JobStatus Enum Type
-type JobStatus uint8
+// jobStatus Enum Type
+type jobStatus uint8
 
 const (
-	// JobPending : waiting to be processed
-	JobPending JobStatus = iota
-	// JobInProgress : processing in progress
-	JobInProgress
-	// JobComplete : processing complete
-	JobComplete
-	// JobFailed : processing errored out
-	JobFailed
+	// jobPending : waiting to be processed
+	jobPending jobStatus = iota
+	// jobInProgress : processing in progress
+	jobInProgress
+	// jobComplete : processing complete
+	jobComplete
+	// jobFailed : processing errored out
+	jobFailed
 )
 
-func getQueueKeyPrefix(status JobStatus) string {
+func getQueueKeyPrefix(status jobStatus) string {
 	return fmt.Sprintf("q:%v:", status)
 }
 
-func getJobKey(status JobStatus, ID uint64) string {
+func getJobKey(status jobStatus, ID uint64) string {
 	return getQueueKeyPrefix(status) + strconv.Itoa(int(ID))
 }
 
 // dequeueJob moves the next pending job from the pending status to inprogress
-func (q *Queue) dequeueJob() (*Job, error) {
+func (q *queue) dequeueJob() (*Job, error) {
 	var j *Job
 
 	q.dbL.Lock()
 	defer q.dbL.Unlock()
 	err := q.db.Update(func(txn *badger.Txn) error {
-		prefix := []byte(getQueueKeyPrefix(JobPending))
+		prefix := []byte(getQueueKeyPrefix(jobPending))
 		k, v, err := getFirstKVForPrefix(txn, prefix)
 		if err != nil {
 			return err
@@ -170,7 +170,7 @@ func (q *Queue) dequeueJob() (*Job, error) {
 		}
 
 		// Move from from Pending queue to InProgress queue
-		err = moveItem(txn, k, []byte(getJobKey(JobInProgress, j.ID)), v)
+		err = moveItem(txn, k, []byte(getJobKey(jobInProgress, j.ID)), v)
 
 		return err
 	})
@@ -204,15 +204,15 @@ func getFirstKVForPrefix(txn *badger.Txn, prefix []byte) ([]byte, []byte, error)
 }
 
 // markJobDone moves a job from the inprogress status to complete/failed
-func (q *Queue) markJobDone(id uint64, status JobStatus) error {
-	if status != JobComplete && status != JobFailed {
+func (q *queue) markJobDone(id uint64, status jobStatus) error {
+	if status != jobComplete && status != jobFailed {
 		return errors.New("Can only move to Complete or Failed Status")
 	}
 
 	q.dbL.Lock()
 	defer q.dbL.Unlock()
 	err := q.db.Update(func(txn *badger.Txn) error {
-		key := []byte(getJobKey(JobInProgress, id))
+		key := []byte(getJobKey(jobInProgress, id))
 		b, err := getBytesForKey(txn, key)
 		if err != nil {
 			return err

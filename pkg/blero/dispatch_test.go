@@ -68,7 +68,7 @@ func (m *testProcessor) Run(j *Job) error {
 func TestBlero_assignJobs(t *testing.T) {
 	bl := New(testDBPath)
 	// only start the queue and not the dispatch loop to allow manual jobs assignment
-	err := bl.queue.Start()
+	err := bl.queue.start()
 	assert.NoError(t, err)
 
 	// stop gracefully
@@ -223,7 +223,7 @@ func TestBlero_AutoProcessing_JobsFirst(t *testing.T) {
 func TestBlero_AutoProcessing_GoRoutinesHanging(t *testing.T) {
 	bl := New(testDBPath)
 	// only start the queue and not the dispatch loop to not run assign and show goroutines hanging problem
-	err := bl.queue.Start()
+	err := bl.queue.start()
 	assert.NoError(t, err)
 
 	// stop gracefully

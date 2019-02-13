@@ -1,6 +1,6 @@
 # Goblero 
 
-Pure Go embedded persistent job queue, backed by [BadgerDB](https://github.com/dgraph-io/badger)
+Pure Go Simple, Embedded, Persistent Job Queue, backed by [BadgerDB](https://github.com/dgraph-io/badger)
 
 [![Build Status](https://travis-ci.org/didil/goblero.svg?branch=master)](https://travis-ci.org/didil/goblero)
 [![Coverage Status](https://coveralls.io/repos/github/didil/goblero/badge.svg?branch=master)](https://coveralls.io/github/didil/goblero?branch=master)
@@ -10,7 +10,32 @@ Pure Go embedded persistent job queue, backed by [BadgerDB](https://github.com/d
 
 **DO NOT USE IN PRODUCTION** This library is still a Work In Progress 
 
+## About Goblero
 
+Goblero is a simple, embedded, persistent job queue backed by BadgerDB. It can provided in-process job processing to any Go app.
+
+## Usage 
+The full API is documented on [godoc.org](https://godoc.org/github.com/didil/goblero/pkg/blero). There is also a demo repo [goblero-demo](https://github.com/didil/goblero-demo/tree/master)
+
+````
+// Create a new Blero backend
+bl := blero.New("db/")
+
+// Start Blero
+bl.Start()
+
+// defer Stopping Blero
+defer bl.Stop()
+
+// register a processor
+bl.RegisterProcessorFunc(func(j *blero.Job) error {
+// Do some processing
+})
+
+// enqueue a job
+bl.EnqueueJob("MyJob", []byte("My Job Data"))
+
+````
 
 ## Contributing
 All contributions (PR, feedback, bug reports, ideas, etc.) are welcome !

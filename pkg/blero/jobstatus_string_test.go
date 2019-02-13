@@ -7,11 +7,11 @@ import (
 )
 
 func TestJobStatus_String(t *testing.T) {
-	assert.Equal(t, "pending", JobPending.String())
-	assert.Equal(t, "inprogress", JobInProgress.String())
-	assert.Equal(t, "complete", JobComplete.String())
-	assert.Equal(t, "failed", JobFailed.String())
+	assert.Equal(t, "pending", jobPending.String())
+	assert.Equal(t, "inprogress", jobInProgress.String())
+	assert.Equal(t, "complete", jobComplete.String())
+	assert.Equal(t, "failed", jobFailed.String())
 
 	// unknown
-	assert.Equal(t, "JobStatus(50)", JobStatus(50).String())
+	assert.Equal(t, "jobStatus(50)", jobStatus(50).String())
 }

@@ -207,10 +207,10 @@ func TestBlero_MarkJobDone(t *testing.T) {
 	_, err = q.dequeueJob()
 	assert.NoError(t, err)
 
-	err = q.markJobDone(j1ID, JobComplete)
+	err = q.markJobDone(j1ID, jobComplete)
 	assert.NoError(t, err)
 
-	err = q.markJobDone(j2ID, JobFailed)
+	err = q.markJobDone(j2ID, jobFailed)
 	assert.NoError(t, err)
 
 	err = q.db.View(func(txn *badger.Txn) error {
@@ -240,10 +240,10 @@ func TestBlero_MarkJobDone(t *testing.T) {
 	assert.NoError(t, err)
 
 	// check random job id is not in queue error
-	err = q.markJobDone(uint64(4151231), JobComplete)
+	err = q.markJobDone(uint64(4151231), jobComplete)
 	assert.EqualError(t, err, "Key not found")
 
 	// check moving job to pending error
-	err = q.markJobDone(j2ID, JobPending)
+	err = q.markJobDone(j2ID, jobPending)
 	assert.EqualError(t, err, "Can only move to Complete or Failed Status")
 }
