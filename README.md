@@ -1,6 +1,6 @@
 # Goblero 
 
-Pure Go Simple, Embedded, Persistent Job Queue, backed by [BadgerDB](https://github.com/dgraph-io/badger)
+Pure Go, Simple, Embedded, Persistent Job Queue, backed by [BadgerDB](https://github.com/dgraph-io/badger)
 
 [![Build Status](https://travis-ci.org/didil/goblero.svg?branch=master)](https://travis-ci.org/didil/goblero)
 [![Coverage Status](https://coveralls.io/repos/github/didil/goblero/badge.svg?branch=master)](https://coveralls.io/github/didil/goblero?branch=master)
@@ -8,7 +8,7 @@ Pure Go Simple, Embedded, Persistent Job Queue, backed by [BadgerDB](https://git
 [![codebeat badge](https://codebeat.co/badges/1d261e4f-36ff-42b5-b015-e31eb7aa7e7d)](https://codebeat.co/projects/github-com-didil-goblero-master)
 
 
-**DO NOT USE IN PRODUCTION** This library is still a Work In Progress 
+**DO NOT USE IN PRODUCTION** This library is still in Alpha / Work In Progress 
 
 ## About Goblero
 
@@ -29,7 +29,7 @@ defer bl.Stop()
 
 // register a processor
 bl.RegisterProcessorFunc(func(j *blero.Job) error {
-// Do some processing
+  // Do some processing, access job name with j.Name, job data with j.Data
 })
 
 // enqueue a job
