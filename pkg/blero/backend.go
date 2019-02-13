@@ -37,7 +37,7 @@ func (bl *Blero) Stop() error {
 
 // EnqueueJob enqueues a new Job and returns the job id
 func (bl *Blero) EnqueueJob(name string, data []byte) (uint64, error) {
-	jID, err := bl.queue.EnqueueJob(name, data)
+	jID, err := bl.queue.enqueueJob(name, data)
 	if err != nil {
 		return 0, err
 	}

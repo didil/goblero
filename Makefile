@@ -7,7 +7,7 @@ test-cover:
 test-ci:
 	go test -race -coverprofile=coverage.txt -covermode=atomic ./pkg/...
 bench:
-	go test -run=XXX -bench=. ./pkg/blero/
+	go test -run=XXX -bench=. -benchtime=5s ./pkg/blero/
 deps:
 	go get -u github.com/dgraph-io/badger
 	go get -u github.com/stretchr/testify/assert

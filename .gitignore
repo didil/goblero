@@ -7,3 +7,7 @@ db/*
 *.out
 cover.html
 coverage.txt
+
+# profiling
+*.test
+profile_cpu.pdf

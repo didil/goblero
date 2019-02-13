@@ -55,6 +55,7 @@ func (q *queue) start() error {
 	badgerOpts.Dir = q.opts.DBPath
 	badgerOpts.ValueDir = q.opts.DBPath
 	badgerOpts.Logger = &badgerLogger{}
+	badgerOpts.SyncWrites = true
 
 	db, err := badger.Open(badgerOpts)
 	if err != nil {
@@ -89,13 +90,14 @@ func (q *queue) stop() error {
 	return nil
 }
 
-// EnqueueJob enqueues a new Job to the Pending queue
-func (q *queue) EnqueueJob(name string, data []byte) (uint64, error) {
+// enqueueJob enqueues a new Job to the Pending queue
+func (q *queue) enqueueJob(name string, data []byte) (uint64, error) {
 	num, err := q.seq.Next()
 	if err != nil {
 		return 0, err
 	}
 	j := &Job{ID: num + 1, Name: name, Data: data}
+	jKey := getJobKey(jobPending, j.ID)
 
 	err = q.db.Update(func(txn *badger.Txn) error {
 		b, err := encodeJob(j)
@@ -103,8 +105,7 @@ func (q *queue) EnqueueJob(name string, data []byte) (uint64, error) {
 			return err
 		}
 
-		key := getJobKey(jobPending, j.ID)
-		err = txn.Set([]byte(key), b)
+		err = txn.Set([]byte(jKey), b)
 
 		return err
 	})
@@ -274,6 +275,5 @@ func moveItem(txn *badger.Txn, oldKey []byte, newKey []byte, b []byte) error {
 
 	// create in Dest queue
 	err = txn.Set(newKey, b)
-
 	return err
 }

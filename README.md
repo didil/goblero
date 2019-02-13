@@ -11,8 +11,19 @@ Pure Go, Simple, Embedded, Persistent Job Queue, backed by [BadgerDB](https://gi
 **DO NOT USE IN PRODUCTION** This library is still in Alpha / Work In Progress 
 
 ## About Goblero
+- Pure Go library, no cgo
+- Simple, embedded, persistent job queue
+- Provides in-process job processing to any Go app
+- The jobs/status changes are persisted to disk after each operation and pending jobs can continue processing after an app restart or a crash
+- Allows multiple "processors", each processor/worker processes one job at a time then is assigned a new job, etc
+- The storage engine used is [BadgerDB](https://github.com/dgraph-io/badger)
 
-Goblero is a simple, embedded, persistent job queue backed by BadgerDB. It can provided in-process job processing to any Go app.
+Todo:
+- Restart interrupted jobs after restart
+- Sweep completed jobs from the "complete" queue
+- Failed Jobs retry options
+- Allow batch enqueuing
+- Test in real conditions under high load
 
 ## Usage 
 The full API is documented on [godoc.org](https://godoc.org/github.com/didil/goblero/pkg/blero). There is also a demo repo [goblero-demo](https://github.com/didil/goblero-demo/tree/master)
@@ -42,6 +53,16 @@ bl.RegisterProcessorFunc(func(j *blero.Job) error {
 bl.EnqueueJob("MyJob", []byte("My Job Data"))
 
 ````
+
+## Benchmarks
+````
+# Core i5 laptop / 8GB Ram / SSD 
+make bench
+BenchmarkEnqueue/EnqueueJob-4          50000            159942 ns/op (~ 6250 ops/s)
+BenchmarkEnqueue/dequeueJob-4           5000           2767260 ns/op (~  361 ops/s)
+
+````
+
 
 ## Contributing
 All contributions (PR, feedback, bug reports, ideas, etc.) are welcome !
