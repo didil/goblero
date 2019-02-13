@@ -11,22 +11,13 @@ Pure Go, Simple, Embedded, Persistent Job Queue, backed by [BadgerDB](https://gi
 **DO NOT USE IN PRODUCTION** This library is still in Alpha / Work In Progress 
 
 ## About Goblero
+Intro article: [Introducing Goblero: a Go Embedded Job Queue](https://medium.com/@didil/introducing-goblero-a-go-embedded-job-queue-6dfec8e24d4c)
 - Pure Go library, no cgo
 - Simple, embedded, persistent job queue
 - Provides in-process job processing to any Go app
 - The jobs/status changes are persisted to disk after each operation and pending jobs can continue processing after an app restart or a crash
 - Allows multiple "processors", each processor/worker processes one job at a time then is assigned a new job, etc
 - The storage engine used is [BadgerDB](https://github.com/dgraph-io/badger)
-
-Todo:
-- Restart interrupted jobs after app restart/crashes
-- Sweep completed jobs from the "complete" queue
-- Failed Jobs retry options
-- Allow batch enqueuing
-- Add support for Go contexts
-- Test in real conditions under high load
-- Expose Prometheus Metrics in an Http handler
-- Optimize performance / Locking
 
 *P.S: Why is the library named Goblero ? Go for the Go programming language obviously, and Badger in french is "Blaireau", but blero is easier to pronounce :)* 
 
@@ -67,6 +58,16 @@ BenchmarkEnqueue/EnqueueJob-4          50000            159942 ns/op (~ 6250 ops
 BenchmarkEnqueue/dequeueJob-4           5000           2767260 ns/op (~  361 ops/s)
 
 ````
+
+## Todo:
+- Restart interrupted jobs after app restart/crashes
+- Sweep completed jobs from the "complete" queue
+- Failed Jobs retry options
+- Allow batch enqueuing
+- Add support for Go contexts
+- Test in real conditions under high load
+- Expose Prometheus Metrics in an Http handler
+- Optimize performance / Locking
 
 
 ## Contributing
