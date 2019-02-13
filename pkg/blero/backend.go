@@ -47,8 +47,8 @@ func (bl *Blero) Stop() error {
 }
 
 // EnqueueJob enqueues a new Job
-func (bl *Blero) EnqueueJob(name string) (uint64, error) {
-	jID, err := bl.queue.EnqueueJob(name)
+func (bl *Blero) EnqueueJob(name string, data []byte) (uint64, error) {
+	jID, err := bl.queue.EnqueueJob(name, data)
 	if err != nil {
 		return 0, err
 	}

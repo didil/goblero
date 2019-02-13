@@ -80,12 +80,12 @@ func (q *Queue) Stop() error {
 }
 
 // EnqueueJob enqueues a new Job to the Pending queue
-func (q *Queue) EnqueueJob(name string) (uint64, error) {
+func (q *Queue) EnqueueJob(name string, data []byte) (uint64, error) {
 	num, err := q.seq.Next()
 	if err != nil {
 		return 0, err
 	}
-	j := &Job{ID: num + 1, Name: name}
+	j := &Job{ID: num + 1, Name: name, Data: data}
 
 	err = q.db.Update(func(txn *badger.Txn) error {
 		b, err := encodeJob(j)

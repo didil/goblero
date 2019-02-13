@@ -96,19 +96,19 @@ func TestBlero_assignJobs(t *testing.T) {
 	assert.NoError(t, err)
 
 	// enqueue jobs
-	j1ID, err := bl.EnqueueJob(j1Name)
+	j1ID, err := bl.EnqueueJob(j1Name, nil)
 	assert.NoError(t, err)
 	p1.AssertNumberOfCalls(t, "Run", 0)
 	p2.AssertNumberOfCalls(t, "Run", 0)
 	p3.AssertNumberOfCalls(t, "Run", 0)
 
-	j2ID, err := bl.EnqueueJob(j2Name)
+	j2ID, err := bl.EnqueueJob(j2Name, nil)
 	assert.NoError(t, err)
 	p1.AssertNumberOfCalls(t, "Run", 0)
 	p2.AssertNumberOfCalls(t, "Run", 0)
 	p3.AssertNumberOfCalls(t, "Run", 0)
 
-	j3ID, err := bl.EnqueueJob(j3Name)
+	j3ID, err := bl.EnqueueJob(j3Name, nil)
 	assert.NoError(t, err)
 	p1.AssertNumberOfCalls(t, "Run", 0)
 	p2.AssertNumberOfCalls(t, "Run", 0)
@@ -171,8 +171,8 @@ func TestBlero_AutoProcessing_ProcessorFirst(t *testing.T) {
 	j1Name := "MyJob"
 	j2Name := "MyOtherJob"
 
-	bl.EnqueueJob(j1Name)
-	bl.EnqueueJob(j2Name)
+	bl.EnqueueJob(j1Name, nil)
+	bl.EnqueueJob(j2Name, nil)
 
 	// wait for jobs to be processed
 	time.Sleep(50 * time.Millisecond)
@@ -198,8 +198,8 @@ func TestBlero_AutoProcessing_JobsFirst(t *testing.T) {
 	j1Name := "MyJob"
 	j2Name := "MyOtherJob"
 
-	bl.EnqueueJob(j1Name)
-	bl.EnqueueJob(j2Name)
+	bl.EnqueueJob(j1Name, nil)
+	bl.EnqueueJob(j2Name, nil)
 
 	// simulate wait period
 	time.Sleep(50 * time.Millisecond)
@@ -230,7 +230,7 @@ func TestBlero_AutoProcessing_GoRoutinesHanging(t *testing.T) {
 	defer deleteDBFolder(testDBPath)
 
 	for index := 0; index < 300; index++ {
-		bl.EnqueueJob("FakeJob")
+		bl.EnqueueJob("FakeJob", nil)
 	}
 
 	bl.Stop()

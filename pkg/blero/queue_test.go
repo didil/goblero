@@ -37,7 +37,9 @@ func TestBlero_EnqueueJob(t *testing.T) {
 	defer bl.Stop()
 
 	jName := "TestJob"
-	jID, err := bl.EnqueueJob(jName)
+	jData := []byte("TestJob Args")
+
+	jID, err := bl.EnqueueJob(jName, jData)
 	assert.NoError(t, err)
 
 	assert.Equal(t, uint64(1), jID)
@@ -53,6 +55,7 @@ func TestBlero_EnqueueJob(t *testing.T) {
 
 	assert.Equal(t, jID, j.ID)
 	assert.Equal(t, jName, j.Name)
+	assert.Equal(t, jData, j.Data)
 }
 
 func TestBlero_EnqueueJob_Concurrent(t *testing.T) {
@@ -66,14 +69,14 @@ func TestBlero_EnqueueJob_Concurrent(t *testing.T) {
 
 	ch := make(chan uint64)
 	go func() {
-		id, err := bl.EnqueueJob("TestJob")
+		id, err := bl.EnqueueJob("TestJob", nil)
 		assert.NoError(t, err)
 
 		ch <- id
 	}()
 
 	go func() {
-		id, err := bl.EnqueueJob("TestJob")
+		id, err := bl.EnqueueJob("TestJob", nil)
 		assert.NoError(t, err)
 
 		ch <- id
@@ -97,11 +100,11 @@ func TestBlero_DequeueJob(t *testing.T) {
 	q := bl.queue
 
 	j1Name := "TestJob"
-	j1ID, err := bl.EnqueueJob(j1Name)
+	j1ID, err := bl.EnqueueJob(j1Name, nil)
 	assert.NoError(t, err)
 
 	j2Name := "TestJob"
-	j2ID, err := bl.EnqueueJob(j2Name)
+	j2ID, err := bl.EnqueueJob(j2Name, nil)
 	assert.NoError(t, err)
 
 	j, err := q.dequeueJob()
@@ -142,11 +145,11 @@ func TestBlero_DequeueJob_Concurrent(t *testing.T) {
 	q := bl.queue
 
 	j1Name := "TestJob"
-	j1ID, err := bl.EnqueueJob(j1Name)
+	j1ID, err := bl.EnqueueJob(j1Name, nil)
 	assert.NoError(t, err)
 
 	j2Name := "TestJob"
-	j2ID, err := bl.EnqueueJob(j2Name)
+	j2ID, err := bl.EnqueueJob(j2Name, nil)
 	assert.NoError(t, err)
 
 	ch := make(chan *Job)
@@ -190,11 +193,11 @@ func TestBlero_MarkJobDone(t *testing.T) {
 	q := bl.queue
 
 	j1Name := "TestJob"
-	j1ID, err := bl.EnqueueJob(j1Name)
+	j1ID, err := bl.EnqueueJob(j1Name, nil)
 	assert.NoError(t, err)
 
 	j2Name := "TestJob"
-	j2ID, err := bl.EnqueueJob(j2Name)
+	j2ID, err := bl.EnqueueJob(j2Name, nil)
 	assert.NoError(t, err)
 
 	// move job 1 to inprogress
