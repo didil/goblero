@@ -4,6 +4,7 @@ package blero
 type Job struct {
 	ID   uint64
 	Name string
+	Data []byte
 }
 
 // Processor interface
