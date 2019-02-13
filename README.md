@@ -23,6 +23,7 @@ Todo:
 - Sweep completed jobs from the "complete" queue
 - Failed Jobs retry options
 - Allow batch enqueuing
+- Add support for Go contexts
 - Test in real conditions under high load
 - Optimize performance / Locking
 
