@@ -25,6 +25,8 @@ Todo:
 - Allow batch enqueuing
 - Test in real conditions under high load
 
+*P.S: Why is the library named Goblero ? Go for the Go programming language obviously, and Badger in french is "Blaireau", but blero is easier to pronounce :)* 
+
 ## Usage 
 The full API is documented on [godoc.org](https://godoc.org/github.com/didil/goblero/pkg/blero). There is also a demo repo [goblero-demo](https://github.com/didil/goblero-demo/tree/master)
 
