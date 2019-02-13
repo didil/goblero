@@ -184,8 +184,9 @@ func (q *queue) dequeueJob() (*Job, error) {
 
 func getFirstKVForPrefix(txn *badger.Txn, prefix []byte) ([]byte, []byte, error) {
 	itOpts := badger.DefaultIteratorOptions
-	itOpts.PrefetchValues = false
-	it := txn.NewIterator(badger.DefaultIteratorOptions)
+	itOpts.PrefetchValues = true
+	itOpts.PrefetchSize = 1
+	it := txn.NewIterator(itOpts)
 
 	// go to smallest key after prefix
 	it.Seek(prefix)
@@ -213,10 +214,11 @@ func (q *queue) markJobDone(id uint64, status jobStatus) error {
 		return errors.New("Can only move to Complete or Failed Status")
 	}
 
+	key := []byte(getJobKey(jobInProgress, id))
+
 	q.dbL.Lock()
 	defer q.dbL.Unlock()
 	err := q.db.Update(func(txn *badger.Txn) error {
-		key := []byte(getJobKey(jobInProgress, id))
 		b, err := getBytesForKey(txn, key)
 		if err != nil {
 			return err
