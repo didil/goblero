@@ -1,7 +1,9 @@
 package blero
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	"runtime"
 	"sync"
 	"testing"
@@ -238,4 +240,40 @@ func TestBlero_AutoProcessing_GoRoutinesHanging(t *testing.T) {
 	time.Sleep(50 * time.Millisecond)
 
 	assert.True(t, runtime.NumGoroutine() < 20)
+}
+
+type safeBuffer struct {
+	bytes.Buffer
+	m sync.Mutex
+}
+
+func (b *safeBuffer) Read(p []byte) (n int, err error) {
+	b.m.Lock()
+	defer b.m.Unlock()
+	return b.Buffer.Read(p)
+}
+
+func (b *safeBuffer) Write(p []byte) (n int, err error) {
+	b.m.Lock()
+	defer b.m.Unlock()
+	return b.Buffer.Write(p)
+}
+
+func Test_dispatcherAssignFails(t *testing.T) {
+	stdErr = new(safeBuffer)
+	pStore := newProcessorsStore()
+	// introduce error by registering nil processor
+	pStore.registerProcessor(nil)
+	d := newDispatcher(pStore)
+
+	d.startLoop(nil)
+
+	// send assign signal
+	d.signalLoop()
+
+	time.Sleep(50 * time.Millisecond)
+	errText, err := ioutil.ReadAll(stdErr)
+	assert.NoError(t, err)
+
+	assert.Equal(t, "Cannot assign jobs: Processor 1 not found", string(errText))
 }

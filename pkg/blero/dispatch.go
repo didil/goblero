@@ -2,6 +2,7 @@ package blero
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"sync"
 )
@@ -23,6 +24,9 @@ func newDispatcher(pStore *processorsStore) *dispatcher {
 	return d
 }
 
+// testable stderr
+var stdErr io.ReadWriter = os.Stderr
+
 // startLoop starts the dispatcher assignment loop
 func (d *dispatcher) startLoop(q *queue) {
 	go func() {
@@ -31,7 +35,7 @@ func (d *dispatcher) startLoop(q *queue) {
 			case <-d.ch:
 				err := d.assignJobs(q)
 				if err != nil {
-					fmt.Fprintf(os.Stderr, "Cannot assign jobs: %v", err)
+					fmt.Fprintf(stdErr, "Cannot assign jobs: %v", err)
 				}
 			case <-d.quitCh: // loop was stopped
 				return
