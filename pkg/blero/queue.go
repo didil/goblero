@@ -69,13 +69,8 @@ func (q *queue) start() error {
 	q.db = db
 
 	// init sequence
-	seq, err := db.GetSequence([]byte("standard"), 1000)
-	if err != nil {
-		return err
-	}
-	q.seq = seq
-
-	return nil
+	q.seq, err = db.GetSequence([]byte("standard"), 1000)
+	return err
 }
 
 // stop Queue and Release resources
@@ -137,10 +132,7 @@ func (q *queue) enqueueJob(name string, data []byte) (uint64, error) {
 func encodeJob(j *Job) ([]byte, error) {
 	var b bytes.Buffer
 	err := gob.NewEncoder(&b).Encode(j)
-	if err != nil {
-		return nil, err
-	}
-	return b.Bytes(), nil
+	return b.Bytes(), err
 }
 
 // jobStatus Enum Type
@@ -219,11 +211,7 @@ func getFirstKVForPrefix(txn *badger.Txn, prefix []byte) ([]byte, []byte, error)
 	k := item.KeyCopy(nil)
 
 	v, err := item.ValueCopy(nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return k, v, nil
+	return k, v, err
 }
 
 // markJobDone moves a job from the inprogress status to complete/failed
