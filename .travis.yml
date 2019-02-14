@@ -3,6 +3,10 @@ language: go
 sudo: false
 dist: trusty
 
+branches:
+  only:
+  - master
+
 go:
 - 1.11.x
 
