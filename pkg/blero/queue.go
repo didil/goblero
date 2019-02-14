@@ -57,6 +57,11 @@ func (q *queue) start() error {
 	badgerOpts.Logger = &badgerLogger{}
 	badgerOpts.SyncWrites = true
 
+	// test logger
+	badgerOpts.Logger.Infof("[badgerLogger]TEST Infof")
+	badgerOpts.Logger.Warningf("[badgerLogger]TEST Warningf")
+	badgerOpts.Logger.Errorf("[badgerLogger]TEST Errorf")
+
 	db, err := badger.Open(badgerOpts)
 	if err != nil {
 		return err
@@ -90,9 +95,22 @@ func (q *queue) stop() error {
 	return nil
 }
 
+func getNextSeq(seq *badger.Sequence) (num uint64, err error) {
+	defer func() {
+		r := recover()
+		if r != nil {
+			// recover from panic and send err instead
+			err = r.(error)
+		}
+	}()
+
+	num, err = seq.Next()
+	return num, err
+}
+
 // enqueueJob enqueues a new Job to the Pending queue
 func (q *queue) enqueueJob(name string, data []byte) (uint64, error) {
-	num, err := q.seq.Next()
+	num, err := getNextSeq(q.seq)
 	if err != nil {
 		return 0, err
 	}

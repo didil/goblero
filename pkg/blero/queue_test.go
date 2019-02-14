@@ -24,6 +24,19 @@ func deleteDBFolder(dbPath string) {
 	}
 }
 
+func TestBlero_StopQueueAlreadyStopped(t *testing.T) {
+	bl := New(testDBPath)
+	err := bl.Start()
+	assert.NoError(t, err)
+
+	// delete folder
+	defer deleteDBFolder(testDBPath)
+	bl.Stop()
+
+	err = bl.queue.stop()
+	assert.EqualError(t, err, "Writes are blocked, possibly due to DropAll or Close")
+}
+
 func TestBlero_EnqueueJob(t *testing.T) {
 	bl := New(testDBPath)
 	err := bl.Start()
@@ -85,6 +98,19 @@ func TestBlero_EnqueueJob_Concurrent(t *testing.T) {
 	id2 := <-ch
 
 	assert.ElementsMatch(t, []uint64{1, 2}, []uint64{id1, id2})
+}
+
+func TestBlero_EnqueueJobQueueStopped(t *testing.T) {
+	bl := New(testDBPath)
+	err := bl.Start()
+	assert.NoError(t, err)
+
+	// delete folder
+	defer deleteDBFolder(testDBPath)
+	bl.Stop()
+
+	_, err = bl.EnqueueJob("TestJob", nil)
+	assert.EqualError(t, err, "runtime error: invalid memory address or nil pointer dereference")
 }
 
 func TestBlero_DequeueJob(t *testing.T) {
@@ -245,4 +271,15 @@ func TestBlero_MarkJobDone(t *testing.T) {
 	// check moving job to pending error
 	err = q.markJobDone(j2ID, jobPending)
 	assert.EqualError(t, err, "Can only move to Complete or Failed Status")
+}
+
+func TestBlero_moveItemErr(t *testing.T) {
+	txn := &badger.Txn{}
+	err := moveItem(txn, nil, nil, nil)
+	assert.EqualError(t, err, "No sets or deletes are allowed in a read-only transaction")
+}
+
+func TestBlero_decodeJobErr(t *testing.T) {
+	_, err := decodeJob(nil)
+	assert.EqualError(t, err, "EOF")
 }

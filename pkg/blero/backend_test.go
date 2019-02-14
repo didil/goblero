@@ -12,6 +12,12 @@ func TestBlero_StartNoDBPath(t *testing.T) {
 	assert.EqualError(t, err, "DBPath is required")
 }
 
+func TestBlero_StartDBPathDoesntExist(t *testing.T) {
+	bl := New("/tmp/12354/56547/45459/blero/dbx/")
+	err := bl.Start()
+	assert.EqualError(t, err, "Error Creating Dir: \"/tmp/12354/56547/45459/blero/dbx/\": mkdir /tmp/12354/56547/45459/blero/dbx/: no such file or directory")
+}
+
 func BenchmarkEnqueue(b *testing.B) {
 	bl := New(testDBPath)
 	err := bl.Start()
