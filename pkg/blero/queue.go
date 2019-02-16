@@ -57,11 +57,6 @@ func (q *queue) start() error {
 	badgerOpts.Logger = &badgerLogger{}
 	badgerOpts.SyncWrites = true
 
-	// test logger
-	badgerOpts.Logger.Infof("[badgerLogger]TEST Infof")
-	badgerOpts.Logger.Warningf("[badgerLogger]TEST Warningf")
-	badgerOpts.Logger.Errorf("[badgerLogger]TEST Errorf")
-
 	db, err := badger.Open(badgerOpts)
 	if err != nil {
 		return err

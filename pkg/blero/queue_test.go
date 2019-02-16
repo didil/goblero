@@ -37,6 +37,14 @@ func TestBlero_StopQueueAlreadyStopped(t *testing.T) {
 	assert.EqualError(t, err, "Writes are blocked, possibly due to DropAll or Close")
 }
 
+func TestBlero_BadgerLogger(t *testing.T) {
+	logger := &badgerLogger{}
+	// test logger
+	logger.Infof("[badgerLogger]TEST Infof")
+	logger.Warningf("[badgerLogger]TEST Warningf")
+	logger.Errorf("[badgerLogger]TEST Errorf")
+}
+
 func TestBlero_EnqueueJob(t *testing.T) {
 	bl := New(testDBPath)
 	err := bl.Start()
