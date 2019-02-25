@@ -43,6 +43,11 @@ func (l *badgerLogger) Warningf(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
 }
 
+func (l *badgerLogger) Debugf(format string, a ...interface{}) {
+	// Leave blank for the time being,
+	// track it in the future.
+}
+
 // start Queue
 func (q *queue) start() error {
 	// validate opts
