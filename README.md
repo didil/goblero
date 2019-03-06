@@ -6,6 +6,7 @@ Pure Go, Simple, Embedded, Persistent Job Queue, backed by [BadgerDB](https://gi
 [![Coverage Status](https://coveralls.io/repos/github/didil/goblero/badge.svg?branch=master)](https://coveralls.io/github/didil/goblero?branch=master)
 [![goreportcard](https://goreportcard.com/badge/github.com/didil/goblero)](https://goreportcard.com/report/github.com/didil/goblero)
 [![codebeat badge](https://codebeat.co/badges/1d261e4f-36ff-42b5-b015-e31eb7aa7e7d)](https://codebeat.co/projects/github-com-didil-goblero-master)
+[![Documentation](https://godoc.org/github.com/didil/goblero/pkg/blero?status.svg)](https://godoc.org/github.com/didil/goblero/pkg/blero)
 
 
 **DO NOT USE IN PRODUCTION** This library is still in Alpha / Work In Progress 
