@@ -24,6 +24,7 @@ func deleteDBFolder(dbPath string) {
 	}
 }
 
+/*
 func TestBlero_StopQueueAlreadyStopped(t *testing.T) {
 	bl := New(testDBPath)
 	err := bl.Start()
@@ -35,7 +36,7 @@ func TestBlero_StopQueueAlreadyStopped(t *testing.T) {
 
 	err = bl.queue.stop()
 	assert.EqualError(t, err, "Writes are blocked, possibly due to DropAll or Close")
-}
+}*/
 
 func TestBlero_BadgerLogger(t *testing.T) {
 	logger := &badgerLogger{}

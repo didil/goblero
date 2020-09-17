@@ -55,10 +55,12 @@ func (q *queue) start() error {
 		return errors.New("DBPath is required")
 	}
 
+	x := badger.Options{}
+
+	x.Dir = "ds"
+
 	// open db
-	badgerOpts := badger.DefaultOptions
-	badgerOpts.Dir = q.opts.DBPath
-	badgerOpts.ValueDir = q.opts.DBPath
+	badgerOpts := badger.DefaultOptions(q.opts.DBPath)
 	badgerOpts.Logger = &badgerLogger{}
 	badgerOpts.SyncWrites = true
 

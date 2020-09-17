@@ -9,8 +9,7 @@ test-ci:
 bench:
 	go test -run=XXX -bench=. -benchtime=5s ./pkg/blero/
 deps:
-	go get -u github.com/dgraph-io/badger
-	go get -u github.com/stretchr/testify/assert
+	go get ./...
 deps-ci: deps
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/mattn/goveralls
