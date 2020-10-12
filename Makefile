@@ -9,7 +9,7 @@ test-ci:
 bench:
 	go test -run=XXX -bench=. -benchtime=5s ./pkg/blero/
 deps:
-	go get ./...
+	go mod download
 deps-ci: deps
 	go get golang.org/x/tools/cmd/cover
 	go get github.com/mattn/goveralls
