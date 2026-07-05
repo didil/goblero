@@ -6,7 +6,7 @@ import (
 	"sort"
 	"testing"
 
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -119,7 +119,7 @@ func TestBlero_EnqueueJobQueueStopped(t *testing.T) {
 	bl.Stop()
 
 	_, err = bl.EnqueueJob("TestJob", nil)
-	assert.EqualError(t, err, "runtime error: invalid memory address or nil pointer dereference")
+	assert.EqualError(t, err, "DB Closed")
 }
 
 func TestBlero_DequeueJob(t *testing.T) {
