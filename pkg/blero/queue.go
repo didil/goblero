@@ -8,7 +8,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/dgraph-io/badger"
+	"github.com/dgraph-io/badger/v2"
 )
 
 // queueOpts struct
