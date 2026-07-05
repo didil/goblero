@@ -1,6 +1,7 @@
 package blero
 
 import (
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,7 +16,10 @@ func TestBlero_StartNoDBPath(t *testing.T) {
 func TestBlero_StartDBPathDoesntExist(t *testing.T) {
 	bl := New("/tmp/12354/56547/45459/blero/dbx/")
 	err := bl.Start()
-	assert.EqualError(t, err, "Error Creating Dir: \"/tmp/12354/56547/45459/blero/dbx/\": mkdir /tmp/12354/56547/45459/blero/dbx/: no such file or directory")
+	assert.NoError(t, err)
+	// clean up the auto-created dir
+	bl.Stop()
+	os.RemoveAll("/tmp/12354/56547/45459/blero/dbx/")
 }
 
 func BenchmarkEnqueue(b *testing.B) {
