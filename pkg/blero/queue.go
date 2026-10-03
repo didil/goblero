@@ -70,9 +70,37 @@ func (q *queue) start() error {
 	}
 	q.db = db
 
+	if err := q.restoreInterruptedJobs(); err != nil {
+		_ = db.Close()
+		return err
+	}
+
 	// init sequence
 	q.seq, err = db.GetSequence([]byte("standard"), 1000)
+	if err != nil {
+		_ = db.Close()
+	}
 	return err
+}
+
+func (q *queue) restoreInterruptedJobs() error {
+	prefix := []byte(getQueueKeyPrefix(jobInProgress))
+	for {
+		found := false
+		err := q.db.Update(func(txn *badger.Txn) error {
+			k, v, err := getFirstKVForPrefix(txn, prefix)
+			if err != nil || k == nil {
+				return err
+			}
+			found = true
+			pendingKey := append([]byte(getQueueKeyPrefix(jobPending)), k[len(prefix):]...)
+			// Each move is atomic and fits within Badger's transaction limit.
+			return moveItem(txn, k, pendingKey, v)
+		})
+		if err != nil || !found {
+			return err
+		}
+	}
 }
 
 // stop Queue and Release resources
