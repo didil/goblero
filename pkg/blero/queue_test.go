@@ -1,16 +1,193 @@
 package blero
 
 import (
+	"bytes"
+	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/dgraph-io/badger/v4"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 const testDBPath = "../../db/test"
+
+func TestBlero_StartRestoresInterruptedJobs(t *testing.T) {
+	dbPath := t.TempDir()
+	q := newQueue(queueOpts{DBPath: dbPath})
+	require.NoError(t, q.start())
+
+	jobs := make([]*Job, 5)
+	for i := range jobs {
+		name := fmt.Sprintf("job-%d", i)
+		data := []byte{byte(i), 0, 255}
+		id, err := q.enqueueJob(name, data)
+		require.NoError(t, err)
+		jobs[i] = &Job{ID: id, Name: name, Data: data}
+	}
+	for _, status := range []jobStatus{jobComplete, jobFailed} {
+		j, err := q.dequeueJob()
+		require.NoError(t, err)
+		require.NoError(t, q.markJobDone(j.ID, status))
+	}
+	for i := 2; i < 4; i++ {
+		_, err := q.dequeueJob()
+		require.NoError(t, err)
+	}
+	require.NoError(t, q.stop())
+
+	q = newQueue(queueOpts{DBPath: dbPath})
+	require.NoError(t, q.start())
+	defer func() { require.NoError(t, q.stop()) }()
+
+	require.NoError(t, q.db.View(func(txn *badger.Txn) error {
+		for i, status := range []jobStatus{jobComplete, jobFailed, jobPending, jobPending, jobPending} {
+			j, err := getJobForKey(txn, []byte(getJobKey(status, jobs[i].ID)))
+			require.NoError(t, err)
+			assert.Equal(t, jobs[i], j)
+			_, err = txn.Get([]byte(getJobKey(jobInProgress, jobs[i].ID)))
+			assert.ErrorIs(t, err, badger.ErrKeyNotFound)
+		}
+		return nil
+	}))
+
+	for _, expected := range jobs[2:] {
+		j, err := q.dequeueJob()
+		require.NoError(t, err)
+		assert.Equal(t, expected, j)
+		require.NoError(t, q.markJobDone(j.ID, jobComplete))
+	}
+	j, err := q.dequeueJob()
+	require.NoError(t, err)
+	assert.Nil(t, j)
+}
+
+func TestBlero_StartDispatchesInterruptedJobs(t *testing.T) {
+	dbPath := t.TempDir()
+	q := newQueue(queueOpts{DBPath: dbPath})
+	require.NoError(t, q.start())
+	id, err := q.enqueueJob("interrupted", []byte("payload"))
+	require.NoError(t, err)
+	_, err = q.dequeueJob()
+	require.NoError(t, err)
+	require.NoError(t, q.stop())
+
+	bl := New(dbPath)
+	processed := make(chan *Job, 1)
+	bl.RegisterProcessorFunc(func(j *Job) error {
+		processed <- j
+		return nil
+	})
+	require.NoError(t, bl.Start())
+	defer func() { require.NoError(t, bl.Stop()) }()
+
+	select {
+	case j := <-processed:
+		assert.Equal(t, &Job{ID: id, Name: "interrupted", Data: []byte("payload")}, j)
+	case <-time.After(5 * time.Second):
+		t.Fatal("interrupted job was not dispatched after startup")
+	}
+	require.Eventually(t, func() bool {
+		return bl.queue.db.View(func(txn *badger.Txn) error {
+			_, err := txn.Get([]byte(getJobKey(jobComplete, id)))
+			return err
+		}) == nil
+	}, 5*time.Second, time.Millisecond)
+}
+
+func TestBlero_StartRestoresJobsAfterCrash(t *testing.T) {
+	if dbPath := os.Getenv("GOBLERO_TEST_CRASH_DB"); dbPath != "" {
+		q := newQueue(queueOpts{DBPath: dbPath})
+		require.NoError(t, q.start())
+		for i := 0; i < 3; i++ {
+			_, err := q.enqueueJob("crash", []byte{byte(i), 0, 255})
+			require.NoError(t, err)
+		}
+		for i := 0; i < 2; i++ {
+			_, err := q.dequeueJob()
+			require.NoError(t, err)
+		}
+		os.Exit(0)
+	}
+
+	dbPath := t.TempDir()
+	cmd := exec.Command(os.Args[0], "-test.run=^TestBlero_StartRestoresJobsAfterCrash$")
+	cmd.Env = append(os.Environ(), "GOBLERO_TEST_CRASH_DB="+dbPath)
+	out, err := cmd.CombinedOutput()
+	require.NoError(t, err, "%s", out)
+
+	q := newQueue(queueOpts{DBPath: dbPath})
+	require.NoError(t, q.start())
+	defer func() { require.NoError(t, q.stop()) }()
+	id, err := q.enqueueJob("new", []byte("new payload"))
+	require.NoError(t, err)
+	assert.Greater(t, id, uint64(3))
+	require.NoError(t, q.stop())
+
+	q = newQueue(queueOpts{DBPath: dbPath})
+	require.NoError(t, q.start())
+	for i := 0; i < 3; i++ {
+		j, err := q.dequeueJob()
+		require.NoError(t, err)
+		require.Equal(t, &Job{ID: uint64(i + 1), Name: "crash", Data: []byte{byte(i), 0, 255}}, j)
+		require.NoError(t, q.markJobDone(j.ID, jobComplete))
+	}
+	j, err := q.dequeueJob()
+	require.NoError(t, err)
+	require.Equal(t, &Job{ID: id, Name: "new", Data: []byte("new payload")}, j)
+	require.NoError(t, q.markJobDone(j.ID, jobComplete))
+	j, err = q.dequeueJob()
+	require.NoError(t, err)
+	assert.Nil(t, j)
+}
+
+func TestBlero_RestoreInterruptedJobsBeyondTransactionLimit(t *testing.T) {
+	opts := badger.DefaultOptions("").WithInMemory(true).WithLogger(nil).
+		WithMemTableSize(1 << 20).WithValueThreshold(32 << 10)
+	db, err := badger.Open(opts)
+	require.NoError(t, err)
+	defer func() { require.NoError(t, db.Close()) }()
+	q := &queue{db: db}
+	jobs := make([]*Job, 32)
+	for i := range jobs {
+		jobs[i] = &Job{ID: uint64(i + 1), Name: "large", Data: bytes.Repeat([]byte{byte(i)}, 16<<10)}
+		b, err := encodeJob(jobs[i])
+		require.NoError(t, err)
+		require.NoError(t, db.Update(func(txn *badger.Txn) error {
+			return txn.Set([]byte(getJobKey(jobInProgress, jobs[i].ID)), b)
+		}))
+	}
+	err = db.Update(func(txn *badger.Txn) error {
+		for _, j := range jobs {
+			k := []byte(getJobKey(jobInProgress, j.ID))
+			v, err := getBytesForKey(txn, k)
+			if err != nil {
+				return err
+			}
+			if err := moveItem(txn, k, []byte(getJobKey(jobPending, j.ID)), v); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	require.ErrorIs(t, err, badger.ErrTxnTooBig)
+
+	require.NoError(t, q.restoreInterruptedJobs())
+	for _, expected := range jobs {
+		j, err := q.dequeueJob()
+		require.NoError(t, err)
+		require.Equal(t, expected, j)
+		require.NoError(t, q.markJobDone(j.ID, jobComplete))
+	}
+	j, err := q.dequeueJob()
+	require.NoError(t, err)
+	assert.Nil(t, j)
+}
 
 func deleteDBFolder(dbPath string) {
 	// prevent accidental deletion of non badgerdb folder
